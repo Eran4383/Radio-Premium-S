@@ -2,6 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import { logService } from './services/logService';
+
+// Initialize logging
+(window as any).logService = logService;
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

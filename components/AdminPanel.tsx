@@ -7,6 +7,7 @@ import EditStationModal from './admin/EditStationModal';
 import AdminStationList from './admin/AdminStationList';
 import AdminAdminsTab from './admin/AdminAdminsTab';
 import AdminDiagnosticsTab from './admin/AdminDiagnosticsTab';
+import { LogPanel } from './admin/LogPanel';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -31,7 +32,7 @@ interface DiagnosticResult {
 const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStations, onStationsUpdate, currentUserEmail, favorites }) => {
     const [stations, setStations] = useState<Station[]>(currentStations);
     const [editingStation, setEditingStation] = useState<Station | null>(null);
-    const [activeTab, setActiveTab] = useState<'stations' | 'admins' | 'diagnostics'>('stations');
+    const [activeTab, setActiveTab] = useState<'stations' | 'admins' | 'diagnostics' | 'logs'>('stations');
     const [admins, setAdmins] = useState<string[]>([]);
     const [newAdminEmail, setNewAdminEmail] = useState('');
     const [statusMsg, setStatusMsg] = useState('');
@@ -146,9 +147,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
                 <button onClick={onClose} className="p-2"><ChevronDownIcon className="w-6 h-6 rotate-180" /></button>
             </div>
             <div className="flex bg-bg-secondary/50 p-2 gap-2 shrink-0">
-                {(['stations', 'admins', 'diagnostics'] as const).map(tab => (
+                {(['stations', 'admins', 'diagnostics', 'logs'] as const).map(tab => (
                     <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 rounded text-sm font-bold ${activeTab === tab ? 'bg-accent text-white' : 'hover:bg-gray-700'}`}>
-                        {tab === 'stations' ? `תחנות (${stations.length})` : tab === 'admins' ? 'מנהלים' : '🩺 דיאגנוסטיקה'}
+                        {tab === 'stations' ? `תחנות (${stations.length})` : tab === 'admins' ? 'מנהלים' : tab === 'diagnostics' ? '🩺 דיאגנוסטיקה' : '📋 לוגים'}
                     </button>
                 ))}
             </div>
@@ -172,6 +173,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
                 )}
                 {activeTab === 'admins' && <AdminAdminsTab admins={admins} newAdminEmail={newAdminEmail} onNewAdminEmailChange={setNewAdminEmail} onAddAdmin={handleAddAdmin} onRemoveAdmin={handleRemoveAdmin} currentUserEmail={currentUserEmail} />}
                 {activeTab === 'diagnostics' && <AdminDiagnosticsTab isRunningDiagnostics={isRunningDiagnostics} onRunDiagnostics={runDiagnostics} diagnosticResults={diagnosticResults} />}
+                {activeTab === 'logs' && <LogPanel />}
             </div>
         </div>
     );

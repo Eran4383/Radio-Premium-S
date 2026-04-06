@@ -247,13 +247,36 @@ export const useAudioEngine = ({
 
   useEffect(() => {
     const clearWatchdog = () => { if (watchdogIntervalRef.current) { clearInterval(watchdogIntervalRef.current); watchdogIntervalRef.current = null; } };
+    const audio = audioRef.current;
     if (status === 'PLAYING') {
       clearWatchdog();
       lastTimeUpdateRef.current = Date.now();
       recoveryAttemptRef.current = 0;
+
+      const handleTimeUpdate = () => {
+        lastTimeUpdateRef.current = Date.now();
+      };
+
+      if (audio) {
+        audio.addEventListener('timeupdate', handleTimeUpdate);
+        audio.addEventListener('playing', handleTimeUpdate);
+      }
+
       watchdogIntervalRef.current = window.setInterval(() => {
-        if (Date.now() - lastTimeUpdateRef.current > 7000) attemptRecovery();
-      }, 3000);
+        const timeSinceLastUpdate = Date.now() - lastTimeUpdateRef.current;
+        if (timeSinceLastUpdate > 10000) { // Increased to 10s for more stability
+          console.warn(`Watchdog triggered: No audio progress for ${timeSinceLastUpdate}ms. Attempting recovery...`);
+          attemptRecovery();
+        }
+      }, 5000);
+
+      return () => {
+        clearWatchdog();
+        if (audio) {
+          audio.removeEventListener('timeupdate', handleTimeUpdate);
+          audio.removeEventListener('playing', handleTimeUpdate);
+        }
+      };
     } else {
       clearWatchdog();
       recoveryAttemptRef.current = 0;
