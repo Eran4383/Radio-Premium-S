@@ -127,6 +127,103 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
         setIsRunningDiagnostics(false);
     };
 
+    const handleDownloadCSV = () => {
+        const headers = ['Name', 'Stream URL', 'Codec', 'Bitrate', 'Tags', 'UUID'];
+        const rows = stations.map(s => [
+            `"${s.name.replace(/"/g, '""')}"`,
+            `"${s.url_resolved}"`,
+            s.codec,
+            s.bitrate,
+            `"${s.tags.replace(/"/g, '""')}"`,
+            s.stationuuid
+        ]);
+        
+        const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `radio_stations_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleUploadCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const text = event.target?.result as string;
+                const lines = text.split(/\r?\n/);
+                if (lines.length < 2) throw new Error('קובץ ריק או לא תקין');
+
+                // Simple CSV parser that handles quotes
+                const parseCSVLine = (line: string) => {
+                    const result = [];
+                    let current = '';
+                    let inQuotes = false;
+                    for (let i = 0; i < line.length; i++) {
+                        const char = line[i];
+                        if (char === '"') {
+                            if (inQuotes && line[i + 1] === '"') {
+                                current += '"';
+                                i++;
+                            } else {
+                                inQuotes = !inQuotes;
+                            }
+                        } else if (char === ',' && !inQuotes) {
+                            result.push(current);
+                            current = '';
+                        } else {
+                            current += char;
+                        }
+                    }
+                    result.push(current);
+                    return result;
+                };
+
+                const newStations: Station[] = [];
+                // Skip header
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+
+                    const parts = parseCSVLine(line);
+                    if (parts.length < 2) continue;
+
+                    const [name, url, codec, bitrate, tags, uuid] = parts;
+                    newStations.push({
+                        name: name || 'ללא שם',
+                        url_resolved: url || '',
+                        favicon: '', // Added missing property
+                        codec: codec || 'MP3',
+                        bitrate: parseInt(bitrate) || 128,
+                        tags: tags || '',
+                        stationuuid: uuid || crypto.randomUUID(),
+                        countrycode: 'IL'
+                    });
+                }
+
+                if (newStations.length > 0) {
+                    if (confirm(`האם לעדכן את רשימת התחנות ב-${newStations.length} תחנות מהקובץ? (זה יחליף את הרשימה הנוכחית)`)) {
+                        setStations(newStations);
+                        setStatusMsg(`נטענו ${newStations.length} תחנות בהצלחה. אל תשכח לשמור לענן!`);
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                alert('שגיאה בקריאת הקובץ. וודא שהפורמט תקין.');
+            }
+            // Reset input
+            e.target.value = '';
+        };
+        reader.readAsText(file);
+    };
+
     const getSortedStations = () => {
         const list = [...stations];
         switch (sortType) {
@@ -156,10 +253,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
             <div className="flex-grow overflow-y-auto p-4">
                 {activeTab === 'stations' && (
                     <>
-                        <div className="flex flex-wrap gap-2 mb-4 sticky top-0 bg-bg-primary py-2 z-10 border-b border-gray-800 items-center">
-                             <button onClick={handleSaveToCloud} disabled={isLoading} className="bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded font-bold shadow-lg text-sm flex-grow sm:flex-grow-0">{isLoading ? 'שומר...' : 'שמור לענן'}</button>
-                             <button onClick={handleAddStation} className="bg-accent hover:bg-accent-hover text-white px-3 py-2 rounded shadow-lg text-sm flex-grow sm:flex-grow-0">+ הוסף</button>
-                             <select value={sortType} onChange={(e) => setSortType(e.target.value as AdminSortType)} className="bg-gray-700 text-white text-xs p-2 rounded border border-gray-600 outline-none flex-grow sm:flex-grow-0">
+                         <div className="flex flex-wrap gap-2 mb-4 sticky top-0 bg-bg-primary py-2 z-10 border-b border-gray-800 items-center">
+                              <button onClick={handleSaveToCloud} disabled={isLoading} className="bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded font-bold shadow-lg text-sm flex-grow sm:flex-grow-0">{isLoading ? 'שומר...' : 'שמור לענן'}</button>
+                              <button onClick={handleAddStation} className="bg-accent hover:bg-accent-hover text-white px-3 py-2 rounded shadow-lg text-sm flex-grow sm:flex-grow-0">+ הוסף</button>
+                              <button onClick={handleDownloadCSV} className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded shadow-lg text-sm flex-grow sm:flex-grow-0">📥 הורד רשימה (CSV)</button>
+                              <label className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded shadow-lg text-sm flex-grow sm:flex-grow-0 cursor-pointer text-center">
+                                  📤 העלה רשימה (CSV)
+                                  <input type="file" accept=".csv" onChange={handleUploadCSV} className="hidden" />
+                              </label>
+                              <select value={sortType} onChange={(e) => setSortType(e.target.value as AdminSortType)} className="bg-gray-700 text-white text-xs p-2 rounded border border-gray-600 outline-none flex-grow sm:flex-grow-0">
                                 <option value="default">סדר שמור (ברירת מחדל)</option>
                                 <option value="name_asc">שם (א-ת)</option>
                                 <option value="name_desc">שם (ת-א)</option>

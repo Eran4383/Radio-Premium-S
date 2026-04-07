@@ -13,7 +13,17 @@ import { GridSize, CATEGORY_SORTS } from './types/settings';
 export default function App() {
   // 1. Hooks Layer
   const { user, isAdmin, isAuthReady, handleLogin, handleLogout } = useAuth();
-  const { allSettings, setAllSettings, handleToggleSettingsSection, updateStatus, handleManualUpdateCheck, mergeModal, isCloudSyncing } = useSettings(user, isAuthReady);
+  const { 
+    allSettings, 
+    setAllSettings, 
+    handleToggleSettingsSection, 
+    updateStatus, 
+    handleManualUpdateCheck, 
+    mergeModal, 
+    isCloudSyncing,
+    forcePushToCloud,
+    forcePullFromCloud
+  } = useSettings(user, isAuthReady);
   const { stations, stationsStatus, error, handleAdminUpdate } = useStations();
   
   const isFavorite = useCallback((uuid: string) => allSettings.favorites.includes(uuid), [allSettings.favorites]);
@@ -72,6 +82,7 @@ export default function App() {
       user={user} isAdmin={isAdmin} onLogin={handleLogin} onLogout={handleLogout} isAdminPanelOpen={isAdminPanelOpen} setIsAdminPanelOpen={setIsAdminPanelOpen}
       allSettings={allSettings} setAllSettings={setAllSettings} isSettingsOpen={isSettingsOpen} setIsSettingsOpen={setIsSettingsOpen} handleToggleSettingsSection={handleToggleSettingsSection}
       handleManualUpdateCheck={handleManualUpdateCheck} updateStatus={updateStatus} isRebinding={isRebinding} setIsRebinding={setIsRebinding}
+      isCloudSyncing={isCloudSyncing} onForcePush={forcePushToCloud} onForcePull={forcePullFromCloud}
       stations={stations} displayedStations={displayedStations} stationsStatus={stationsStatus} error={error} handleSelectStation={handleSelectStation} isFavorite={isFavorite} toggleFavorite={toggleFavorite} handleReorder={handleReorder} handleAdminUpdate={handleAdminUpdate}
       playerState={playerState} handlePlayerEvent={handlePlayerEvent} handlePlayPause={handlePlayPause} handlePlay={handlePlayPause} handlePause={handlePlayPause} handleNext={handleNext} handlePrev={handlePrev} handleVolumeChange={(v) => setAllSettings(s => ({...s, volume: v}))}
       frequencyData={frequencyData} setFrequencyData={setFrequencyData as (data: Uint8Array) => void} trackInfo={trackInfo} smartPlaylist={smartPlaylist}

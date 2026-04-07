@@ -31,6 +31,7 @@ export const defaultSettings: AllSettings = {
         theme: true,
         eq: true,
         interface: true,
-        shortcuts: false
+        shortcuts: false,
+        sync: false
     }
 };

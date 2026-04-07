@@ -122,6 +122,7 @@ export interface SettingsSections {
     eq: boolean;
     interface: boolean;
     shortcuts: boolean;
+    sync: boolean;
 }
 
 export type AllSettings = {

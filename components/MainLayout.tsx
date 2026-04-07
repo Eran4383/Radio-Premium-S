@@ -82,6 +82,11 @@ interface MainLayoutProps {
   handleTouchStart: (e: React.TouchEvent) => void;
   handleTouchMove: (e: React.TouchEvent) => void;
   handleTouchEnd: () => void;
+  
+  // Sync
+  isCloudSyncing: boolean;
+  onForcePush: () => void;
+  onForcePull: () => void;
 }
 
 const SortButton: React.FC<{ label: string; order: SortOrder; currentOrder: SortOrder; setOrder: (order: SortOrder) => void }> = ({ label, order, currentOrder, setOrder }) => (
@@ -100,7 +105,8 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
     actionMenuState, closeActionMenu, openActionMenu,
     mergeModal, pendingRemoval, confirmRemoval, cancelRemoval,
     currentSortOrder, setSortOrder, handleCategorySortClick, categoryButtonLabel, currentCategoryIndex,
-    handleTouchStart, handleTouchMove, handleTouchEnd
+    handleTouchStart, handleTouchMove, handleTouchEnd,
+    isCloudSyncing, onForcePush, onForcePull
   } = props;
 
   return (
@@ -192,6 +198,9 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         on100fmSmartPlayerEnabledChange={(v) => setAllSettings(s=>({...s, is100fmSmartPlayerEnabled: v}))} 
         openSections={allSettings.settingsSections} 
         onToggleSection={handleToggleSettingsSection} 
+        isCloudSyncing={isCloudSyncing}
+        onForcePush={onForcePush}
+        onForcePull={onForcePull}
       />
       <NowPlaying 
         isOpen={isNowPlayingOpen} 
