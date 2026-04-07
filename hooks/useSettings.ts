@@ -47,10 +47,20 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
         if (isInitialSyncDone) return;
 
         setIsCloudSyncing(true);
-        console.log(`[Sync] Starting sync for user: ${user.email} (${user.uid})`);
+        console.log(`[Sync Debug] Current User Email: ${user.email}`);
+        console.log(`[Sync Debug] Current User UID: ${user.uid}`);
+        console.log(`[Sync Debug] Project ID: ${import.meta.env.VITE_FIREBASE_PROJECT_ID}`);
         
         const hasSyncedBefore = localStorage.getItem('radio-has-synced-with-account') === 'true';
+        console.log(`[Sync Debug] Has synced before on this device? ${hasSyncedBefore}`);
+
         const rawCloudSettings = await getUserSettings(user.uid);
+        console.log(`[Sync Debug] Raw cloud settings found? ${!!rawCloudSettings}`);
+        
+        if (rawCloudSettings) {
+          console.log(`[Sync Debug] Cloud favorites count: ${rawCloudSettings.favorites?.length || 0}`);
+        }
+
         const cloudSettings = normalizeSettings(rawCloudSettings);
 
         if (hasSyncedBefore || !rawCloudSettings) {
