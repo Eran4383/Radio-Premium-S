@@ -129,7 +129,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     openSections, onToggleSection,
     isCloudSyncing, onForcePush, onForcePull
  }) => {
-  console.log('DEBUG: SettingsPanel isAdmin:', isAdmin);
   const [isVersionHistoryVisible, setIsVersionHistoryVisible] = useState(false);
   const [listeningFor, setListeningFor] = useState<KeyAction | null>(null);
   

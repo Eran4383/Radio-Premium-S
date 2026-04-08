@@ -19,9 +19,7 @@ export const useAuth = () => {
         if (firebaseUser.email) {
           try {
             const adminStatus = await checkAdminRole(firebaseUser.email);
-            const isDev = import.meta.env.MODE === 'development';
-            console.log('DEBUG: adminStatus:', adminStatus, 'MODE:', import.meta.env.MODE, 'isDev:', isDev);
-            setIsAdmin(adminStatus || isDev);
+            setIsAdmin(adminStatus || import.meta.env.MODE === 'development');
           } catch (error) {
             console.error('Error checking admin role:', error);
             setIsAdmin(import.meta.env.MODE === 'development');
