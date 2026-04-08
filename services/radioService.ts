@@ -18,6 +18,16 @@ export const fetchWithFallbackProxy = async (url: string, options: ProxyOptions 
     const { disableCacheBust, ...fetchOptions } = options;
     const cacheBust = disableCacheBust ? '' : `${url.includes('?') ? '&' : '?' }t=${Date.now()}`;
     
+    // Try internal proxy first
+    try {
+        const internalProxyUrl = `/api/proxy?url=${encodeURIComponent(url + cacheBust)}`;
+        const response = await fetch(internalProxyUrl, { ...fetchOptions, cache: 'no-cache' });
+        if (response.ok) return response;
+        console.warn(`Internal proxy failed: ${url} with status ${response.status}`);
+    } catch (e) {
+        console.warn(`Internal proxy error: ${url}`, e);
+    }
+
     const proxies = [
         `${CORS_PROXY_URL}${url}${cacheBust}`,
         `https://api.allorigins.win/raw?url=${encodeURIComponent(url + cacheBust)}`,
@@ -79,7 +89,7 @@ const fetch100fmStations = async (): Promise<Station[]> => {
     return data.stations.map((s: any) => ({
       stationuuid: `100fm-${s.slug}`,
       name: s.name,
-      url_resolved: s.audio || s.audioA,
+      url_resolved: s.audioA || s.audio,
       favicon: s.cover || s.logo,
       tags: s.description?.split('\n')[0] || s.name,
       countrycode: 'IL',

@@ -33,7 +33,7 @@ export default function App() {
   
   const { playerState, frequencyData, setFrequencyData, preMuteVolume, setPreMuteVolume, handleSelectStation, handlePlayPause, handleNext, handlePrev, handlePlayerEvent } = usePlayer(displayedStations);
   
-  const { trackInfo, smartPlaylist } = useTrackInfo(playerState.station, allSettings.is100fmSmartPlayerEnabled);
+  const { trackInfo, smartPlaylist, trackError } = useTrackInfo(playerState.station, allSettings.is100fmSmartPlayerEnabled);
   
   const [isRebinding, setIsRebinding] = useState(false);
   useKeyboardShortcuts({ allSettings, isRebinding, handlePlayPause, handleNext, handlePrev, setAllSettings, preMuteVolume, setPreMuteVolume });
@@ -44,6 +44,7 @@ export default function App() {
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState(false);
   const [isVisualizerFullscreen, setIsVisualizerFullscreen] = useState(false);
   const [actionMenuState, setActionMenuState] = useState<{isOpen: boolean; songTitle: string | null}>({ isOpen: false, songTitle: null });
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
   
   const openActionMenu = useCallback((songTitle: string) => setActionMenuState({ isOpen: true, songTitle }), []);
   const closeActionMenu = useCallback(() => setActionMenuState({ isOpen: false, songTitle: null }), []);
@@ -85,12 +86,13 @@ export default function App() {
       isCloudSyncing={isCloudSyncing} onForcePush={forcePushToCloud} onForcePull={forcePullFromCloud}
       stations={stations} displayedStations={displayedStations} stationsStatus={stationsStatus} error={error} handleSelectStation={handleSelectStation} isFavorite={isFavorite} toggleFavorite={toggleFavorite} handleReorder={handleReorder} handleAdminUpdate={handleAdminUpdate}
       playerState={playerState} handlePlayerEvent={handlePlayerEvent} handlePlayPause={handlePlayPause} handlePlay={handlePlayPause} handlePause={handlePlayPause} handleNext={handleNext} handlePrev={handlePrev} handleVolumeChange={(v) => setAllSettings(s => ({...s, volume: v}))}
-      frequencyData={frequencyData} setFrequencyData={setFrequencyData as (data: Uint8Array) => void} trackInfo={trackInfo} smartPlaylist={smartPlaylist}
+      frequencyData={frequencyData} setFrequencyData={setFrequencyData as (data: Uint8Array) => void} trackInfo={trackInfo} trackError={trackError} smartPlaylist={smartPlaylist}
       isNowPlayingOpen={isNowPlayingOpen} setIsNowPlayingOpen={setIsNowPlayingOpen} isVisualizerFullscreen={isVisualizerFullscreen} setIsVisualizerFullscreen={setIsVisualizerFullscreen}
       actionMenuState={actionMenuState} closeActionMenu={closeActionMenu} openActionMenu={openActionMenu}
       mergeModal={mergeModal} pendingRemoval={pendingRemoval} confirmRemoval={confirmRemoval} cancelRemoval={cancelRemoval}
       currentSortOrder={currentSortOrder} setSortOrder={setSortOrder} handleCategorySortClick={handleCategorySortClick} categoryButtonLabel={categoryButtonLabel} currentCategoryIndex={currentCategoryIndex}
       handleTouchStart={handleTouchStart} handleTouchMove={handleTouchMove} handleTouchEnd={handleTouchEnd}
+      isErrorModalOpen={isErrorModalOpen} setIsErrorModalOpen={setIsErrorModalOpen}
     />
   );
 }

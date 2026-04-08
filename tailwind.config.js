@@ -10,6 +10,7 @@ export default {
     "./config/**/*.{js,ts,jsx,tsx}",
     "./store/**/*.{js,ts,jsx,tsx}",
   ],
+  safelist: ['light', 'blue', 'sunset', 'forest', 'ocean', 'rose', 'matrix'],
   theme: {
     extend: {
       fontFamily: {

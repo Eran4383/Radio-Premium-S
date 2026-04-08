@@ -9,6 +9,7 @@ import AdminPanel from './AdminPanel';
 import StationListSkeleton from './StationListSkeleton';
 import MergeDataModal from './MergeDataModal';
 import ConfirmRemoveModal from './ConfirmRemoveModal';
+import ErrorModal from './ErrorModal';
 import { MenuIcon } from './Icons';
 
 interface MainLayoutProps {
@@ -54,7 +55,10 @@ interface MainLayoutProps {
   frequencyData: Uint8Array;
   setFrequencyData: (data: Uint8Array) => void;
   trackInfo: StationTrackInfo | null;
+  trackError: string | null;
   smartPlaylist: SmartPlaylistItem[];
+  isErrorModalOpen: boolean;
+  setIsErrorModalOpen: (open: boolean) => void;
   
   // UI State
   isNowPlayingOpen: boolean;
@@ -100,7 +104,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
     handleManualUpdateCheck, updateStatus, isRebinding, setIsRebinding,
     stations, displayedStations, stationsStatus, error, handleSelectStation, isFavorite, toggleFavorite, handleReorder, handleAdminUpdate,
     playerState, handlePlayerEvent, handlePlayPause, handlePlay, handlePause, handleNext, handlePrev, handleVolumeChange,
-    frequencyData, setFrequencyData, trackInfo, smartPlaylist,
+    frequencyData, setFrequencyData, trackInfo, trackError, smartPlaylist, isErrorModalOpen, setIsErrorModalOpen,
     isNowPlayingOpen, setIsNowPlayingOpen, isVisualizerFullscreen, setIsVisualizerFullscreen,
     actionMenuState, closeActionMenu, openActionMenu,
     mergeModal, pendingRemoval, confirmRemoval, cancelRemoval,
@@ -117,6 +121,11 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         stationName={pendingRemoval?.name || ''}
         onConfirm={confirmRemoval}
         onCancel={cancelRemoval}
+      />
+      <ErrorModal 
+        isOpen={isErrorModalOpen}
+        onClose={() => setIsErrorModalOpen(false)}
+        error={trackError}
       />
       <AdminPanel 
         isOpen={isAdminPanelOpen}
@@ -242,6 +251,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         volume={allSettings.volume} 
         onVolumeChange={handleVolumeChange} 
         trackInfo={trackInfo} 
+        trackError={trackError}
         showNextSong={allSettings.showNextSong} 
         onOpenNowPlaying={() => setIsNowPlayingOpen(true)} 
         setFrequencyData={setFrequencyData} 
@@ -256,6 +266,8 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         onOpenActionMenu={openActionMenu} 
         is100fmSmartPlayerEnabled={allSettings.is100fmSmartPlayerEnabled} 
         smartPlaylist={smartPlaylist} 
+        isErrorModalOpen={isErrorModalOpen}
+        setIsErrorModalOpen={setIsErrorModalOpen}
       />
     </div>
   );

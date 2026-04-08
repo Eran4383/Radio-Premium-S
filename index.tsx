@@ -17,7 +17,5 @@ const root = ReactDOM.createRoot(rootElement);
 // Render the main app directly. The initial loader will be hidden by the App component
 // once it has finished loading necessary data.
 root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <App />
 );
