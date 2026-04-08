@@ -25,7 +25,11 @@ async function startServer() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  const isProd = process.env.NODE_ENV === "production";
+  console.log(`DEBUG: Server starting in ${isProd ? 'PRODUCTION' : 'DEVELOPMENT'} mode`);
+
+  if (!isProd) {
+    console.log("DEBUG: Initializing Vite middleware...");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -33,6 +37,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(__dirname, 'dist');
+    console.log(`DEBUG: Serving static files from ${distPath}`);
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
