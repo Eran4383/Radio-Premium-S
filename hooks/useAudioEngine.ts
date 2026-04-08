@@ -57,6 +57,7 @@ export const useAudioEngine = ({
   // Smart Resume & Dual Playlist state
   const [isDvrMode, setIsDvrMode] = useState(false);
   const [isDeepSleep, setIsDeepSleep] = useState(false);
+  const [isAudioProcessingEnabled, setIsAudioProcessingEnabled] = useState(false);
   const pauseTimestampRef = useRef<number | null>(null);
   const deepSleepTimeoutRef = useRef<number | null>(null);
   const seekTargetRef = useRef<number | null>(null);
@@ -122,8 +123,11 @@ export const useAudioEngine = ({
         .connect(trebleFilter)
         .connect(analyser)
         .connect(context.destination);
+      
+      setIsAudioProcessingEnabled(true);
     } catch (e) {
-      console.error("Failed to initialize AudioContext", e);
+      console.error("Failed to initialize AudioContext (likely CORS issue)", e);
+      setIsAudioProcessingEnabled(false);
     }
   }, []);
 
@@ -181,6 +185,9 @@ export const useAudioEngine = ({
       if (audioContextRef.current?.state === 'suspended') {
         audioContextRef.current.resume().catch(console.error);
       }
+    } else {
+      // Attempt to setup even without proxy, but it might fail due to CORS
+      setupAudioContext();
     }
     
     let streamUrl = station.url_resolved;
@@ -314,18 +321,18 @@ export const useAudioEngine = ({
 
   useEffect(() => {
     const loop = () => {
-      if (analyserRef.current && isPlaying && shouldUseProxy) {
+      if (analyserRef.current && isPlaying && isAudioProcessingEnabled) {
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         analyserRef.current.getByteFrequencyData(dataArray);
         setFrequencyData(dataArray);
-      } else if (!shouldUseProxy && isPlaying) {
+      } else if (isPlaying) {
         setFrequencyData(new Uint8Array(64));
       }
       animationFrameRef.current = requestAnimationFrame(loop);
     };
     if (isPlaying) animationFrameRef.current = requestAnimationFrame(loop);
     return () => { if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current); };
-  }, [isPlaying, setFrequencyData, shouldUseProxy]);
+  }, [isPlaying, setFrequencyData, isAudioProcessingEnabled]);
 
   useEffect(() => {
     if ('mediaSession' in navigator && station) {
