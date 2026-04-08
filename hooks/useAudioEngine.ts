@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import Hls from 'hls.js';
 import { Station, EqPreset, EQ_PRESETS, CustomEqSettings, StationTrackInfo, SmartPlaylistItem } from '../types';
 import { CORS_PROXY_URL } from '../config/constants';
@@ -53,6 +53,38 @@ export const useAudioEngine = ({
   const lastTimeUpdateRef = useRef<number>(Date.now());
   const recoveryAttemptRef = useRef<number>(0);
   const watchdogIntervalRef = useRef<number | null>(null);
+
+  // Smart Resume & Dual Playlist state
+  const [isDvrMode, setIsDvrMode] = useState(false);
+  const [isDeepSleep, setIsDeepSleep] = useState(false);
+  const pauseTimestampRef = useRef<number | null>(null);
+  const deepSleepTimeoutRef = useRef<number | null>(null);
+  const seekTargetRef = useRef<number | null>(null);
+  const statusRef = useRef(status);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  // Reset DVR mode when station changes
+  useEffect(() => {
+    setIsDvrMode(false);
+    setIsDeepSleep(false);
+    seekTargetRef.current = null;
+    pauseTimestampRef.current = null;
+    if (deepSleepTimeoutRef.current) {
+      clearTimeout(deepSleepTimeoutRef.current);
+      deepSleepTimeoutRef.current = null;
+    }
+  }, [station?.url_resolved]);
+
+  const switchToDvr = useCallback((targetUnixTimestamp?: number) => {
+    if (targetUnixTimestamp) {
+      seekTargetRef.current = targetUnixTimestamp;
+    }
+    setIsDvrMode(true);
+    setIsDeepSleep(false);
+  }, []);
 
   const setupAudioContext = useCallback(() => {
     if (!audioRef.current || audioContextRef.current) return;
@@ -139,69 +171,134 @@ export const useAudioEngine = ({
     audio.play().catch(e => handlePlayError(e, 'Recovery'));
   }, [station, onPlayerEvent, shouldUseProxy, handlePlayError]);
 
+  // Effect 1: Station Load & HLS Setup (Listens ONLY to station/mode changes)
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !station) return;
+    if (!audio || !station || isDeepSleep) return;
 
-    const playAudio = async () => {
-      if (shouldUseProxy) {
-        setupAudioContext();
-        if (audioContextRef.current?.state === 'suspended') {
-          await audioContextRef.current.resume();
-        }
+    if (shouldUseProxy) {
+      setupAudioContext();
+      if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume().catch(console.error);
       }
+    }
+    
+    let streamUrl = station.url_resolved;
+    
+    // Dual Playlist Strategy: Only use DVR if isDvrMode is true
+    if (isSmartPlayerActive && isDvrMode && streamUrl.includes('streamgates.net') && !streamUrl.includes('dvr_timeshift')) {
+      const lastSlashIndex = streamUrl.lastIndexOf('/');
+      if (lastSlashIndex !== -1) {
+        streamUrl = `${streamUrl.substring(0, lastSlashIndex)}/playlist_dvr_timeshift-36000.m3u8`;
+      }
+    }
+
+    if (shouldUseProxy) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
+    const isHls = streamUrl.includes('.m3u8');
+
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (isHls && Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+      hlsRef.current = hls;
+      hls.loadSource(streamUrl);
+      hls.attachMedia(audio);
       
-      let streamUrl = station.url_resolved;
-      if (isSmartPlayerActive && streamUrl.includes('streamgates.net') && !streamUrl.includes('dvr_timeshift')) {
-        const lastSlashIndex = streamUrl.lastIndexOf('/');
-        if (lastSlashIndex !== -1) {
-          streamUrl = `${streamUrl.substring(0, lastSlashIndex)}/playlist_dvr_timeshift-36000.m3u8`;
-        }
-      }
-
-      if (shouldUseProxy) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
-      const isHls = streamUrl.includes('.m3u8');
-
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-
-      if (isHls && Hls.isSupported()) {
-        const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-        hlsRef.current = hls;
-        hls.loadSource(streamUrl);
-        hls.attachMedia(audio);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          audio.play().catch(e => handlePlayError(e, 'HLS'));
-        });
-        hls.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) {
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-            else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-            else onPlayerEvent({ type: 'STREAM_ERROR', payload: "שגיאה בטעינת הזרם." });
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (seekTargetRef.current && audio.seekable.length) {
+          const now = Math.floor(Date.now() / 1000);
+          const secondsAgo = now - seekTargetRef.current;
+          const livePosition = audio.seekable.end(0);
+          const targetPosition = Math.max(0, livePosition - secondsAgo);
+          if (isFinite(targetPosition)) {
+            audio.currentTime = targetPosition;
           }
-        });
-      } else {
-        if (audio.src !== streamUrl) {
-          audio.src = streamUrl;
-          if (shouldUseProxy) audio.crossOrigin = 'anonymous';
-          else audio.removeAttribute('crossOrigin');
+          seekTargetRef.current = null;
         }
+        
+        if (audio.paused && (statusRef.current === 'PLAYING' || statusRef.current === 'LOADING')) {
+          audio.play().catch(e => handlePlayError(e, 'HLS'));
+        }
+      });
+      
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) {
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+          else onPlayerEvent({ type: 'STREAM_ERROR', payload: "שגיאה בטעינת הזרם." });
+        }
+      });
+    } else {
+      if (audio.src !== streamUrl) {
+        audio.src = streamUrl;
+        if (shouldUseProxy) audio.crossOrigin = 'anonymous';
+        else audio.removeAttribute('crossOrigin');
+      }
+      if (audio.paused && (statusRef.current === 'PLAYING' || statusRef.current === 'LOADING')) {
         audio.play().catch(e => handlePlayError(e, 'Standard'));
       }
-    };
+    }
 
-    if (status === 'LOADING') playAudio();
-    else if (status === 'PAUSED' || status === 'IDLE' || status === 'ERROR') audio.pause();
-
+    // Cleanup function is the ONLY place where hls.destroy() is called
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
     };
-  }, [status, station, setupAudioContext, onPlayerEvent, shouldUseProxy, isSmartPlayerActive, handlePlayError]);
+  }, [station?.url_resolved, isDvrMode, isDeepSleep, shouldUseProxy, isSmartPlayerActive, setupAudioContext, onPlayerEvent, handlePlayError]);
+
+  // Effect 2: Play/Pause (Listens ONLY to status)
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (status === 'PLAYING' || status === 'LOADING') {
+      if (audio.paused && audio.src) {
+        audio.play().catch(e => handlePlayError(e, 'Play/Pause Effect'));
+      }
+    } else if (status === 'PAUSED' || status === 'IDLE' || status === 'ERROR') {
+      if (!audio.paused) {
+        audio.pause();
+      }
+    }
+  }, [status, handlePlayError]);
+
+  // Effect 3: Deep Sleep & Smart Resume
+  useEffect(() => {
+    if (status === 'PAUSED') {
+      pauseTimestampRef.current = Math.floor(Date.now() / 1000);
+      deepSleepTimeoutRef.current = window.setTimeout(() => {
+        setIsDeepSleep(true);
+      }, 3 * 60 * 1000); // 3 minutes
+    } else if (status === 'PLAYING') {
+      if (deepSleepTimeoutRef.current) {
+        clearTimeout(deepSleepTimeoutRef.current);
+        deepSleepTimeoutRef.current = null;
+      }
+      
+      if (isDeepSleep && pauseTimestampRef.current) {
+        const gap = Math.floor(Date.now() / 1000) - pauseTimestampRef.current;
+        if (gap < 10 * 3600) { // less than 10 hours
+          seekTargetRef.current = pauseTimestampRef.current;
+          setIsDvrMode(true);
+        } else {
+          setIsDvrMode(false);
+        }
+        setIsDeepSleep(false); // Re-triggers Effect 1
+      }
+      pauseTimestampRef.current = null;
+    }
+
+    return () => {
+      if (deepSleepTimeoutRef.current) {
+        clearTimeout(deepSleepTimeoutRef.current);
+      }
+    };
+  }, [status, isDeepSleep]);
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
   
@@ -284,5 +381,5 @@ export const useAudioEngine = ({
     return clearWatchdog;
   }, [status, attemptRecovery]);
 
-  return { audioRef, attemptRecovery };
+  return { audioRef, attemptRecovery, switchToDvr, isDvrMode };
 };

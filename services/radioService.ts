@@ -79,7 +79,7 @@ const fetch100fmStations = async (): Promise<Station[]> => {
     return data.stations.map((s: any) => ({
       stationuuid: `100fm-${s.slug}`,
       name: s.name,
-      url_resolved: s.audioA || s.audio,
+      url_resolved: s.audio || s.audioA,
       favicon: s.cover || s.logo,
       tags: s.description?.split('\n')[0] || s.name,
       countrycode: 'IL',

@@ -41,12 +41,16 @@ const Player: React.FC<PlayerProps> = (props) => {
   const isLoading = status === 'LOADING';
   const isSmartPlayerActive = is100fmSmartPlayerEnabled && (station?.stationuuid.startsWith('100fm-') || station?.url_resolved.includes('streamgates.net'));
 
-  const { audioRef, attemptRecovery } = useAudioEngine({
+  const { audioRef, attemptRecovery, switchToDvr, isDvrMode } = useAudioEngine({
     status, station, volume, eqPreset, customEqSettings, shouldUseProxy: !!shouldUseProxy, isSmartPlayerActive: !!isSmartPlayerActive, onPlayerEvent, setFrequencyData, isPlaying, trackInfo, onPlay, onPause, onNext, onPrev, smartPlaylist
   });
 
   const getCurrentUnixTime = () => Math.floor(Date.now() / 1000);
   const calculateSeekTime = (targetUnixTimestamp: number) => {
+    if (!isDvrMode) {
+      switchToDvr(targetUnixTimestamp);
+      return;
+    }
     const audio = audioRef.current;
     if (!audio || !audio.seekable.length) return;
     const now = getCurrentUnixTime();
