@@ -10,6 +10,7 @@ import StationListSkeleton from './StationListSkeleton';
 import MergeDataModal from './MergeDataModal';
 import ConfirmRemoveModal from './ConfirmRemoveModal';
 import ErrorModal from './ErrorModal';
+import DiagnosticModal from './DiagnosticModal';
 import { MenuIcon } from './Icons';
 
 interface MainLayoutProps {
@@ -59,6 +60,9 @@ interface MainLayoutProps {
   smartPlaylist: SmartPlaylistItem[];
   isErrorModalOpen: boolean;
   setIsErrorModalOpen: (open: boolean) => void;
+  isDiagnosticModalOpen: boolean;
+  setIsDiagnosticModalOpen: (open: boolean) => void;
+  diagnosticData: any;
   
   // UI State
   isNowPlayingOpen: boolean;
@@ -105,6 +109,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
     stations, displayedStations, stationsStatus, error, handleSelectStation, isFavorite, toggleFavorite, handleReorder, handleAdminUpdate,
     playerState, handlePlayerEvent, handlePlayPause, handlePlay, handlePause, handleNext, handlePrev, handleVolumeChange,
     frequencyData, setFrequencyData, trackInfo, trackError, smartPlaylist, isErrorModalOpen, setIsErrorModalOpen,
+    isDiagnosticModalOpen, setIsDiagnosticModalOpen, diagnosticData,
     isNowPlayingOpen, setIsNowPlayingOpen, isVisualizerFullscreen, setIsVisualizerFullscreen,
     actionMenuState, closeActionMenu, openActionMenu,
     mergeModal, pendingRemoval, confirmRemoval, cancelRemoval,
@@ -127,6 +132,11 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         onClose={() => setIsErrorModalOpen(false)}
         error={trackError}
       />
+      <DiagnosticModal 
+        isOpen={isDiagnosticModalOpen}
+        onClose={() => setIsDiagnosticModalOpen(false)}
+        data={diagnosticData}
+      />
       <AdminPanel 
         isOpen={isAdminPanelOpen}
         onClose={() => setIsAdminPanelOpen(false)}
@@ -139,6 +149,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
       <header className="p-4 bg-bg-secondary/50 backdrop-blur-sm sticky top-0 z-20 shadow-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-text-secondary hover:text-text-primary" aria-label="הגדרות"><MenuIcon className="w-6 h-6" /></button>
+            <button onClick={() => setIsDiagnosticModalOpen(true)} className="p-2 text-red-500 hover:text-red-400 font-bold text-xs" aria-label="אבחון">אבחון</button>
             <div className="flex items-center bg-gray-700 rounded-full p-1">
               <button onClick={() => setAllSettings(s => ({...s, filter: StationFilter.All}))} className={`px-4 py-1 text-sm font-medium rounded-full transition-colors ${allSettings.filter === StationFilter.All ? 'bg-accent text-white' : 'text-gray-300'}`}>{StationFilter.All}</button>
               <button onClick={() => setAllSettings(s => ({...s, filter: StationFilter.Favorites}))} className={`px-4 py-1 text-sm font-medium rounded-full transition-colors ${allSettings.filter === StationFilter.Favorites ? 'bg-accent text-white' : 'text-gray-300'}`}>{StationFilter.Favorites}</button>

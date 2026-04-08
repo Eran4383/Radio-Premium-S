@@ -45,6 +45,7 @@ export default function App() {
   const [isVisualizerFullscreen, setIsVisualizerFullscreen] = useState(false);
   const [actionMenuState, setActionMenuState] = useState<{isOpen: boolean; songTitle: string | null}>({ isOpen: false, songTitle: null });
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [isDiagnosticModalOpen, setIsDiagnosticModalOpen] = useState(false);
   
   const openActionMenu = useCallback((songTitle: string) => setActionMenuState({ isOpen: true, songTitle }), []);
   const closeActionMenu = useCallback(() => setActionMenuState({ isOpen: false, songTitle: null }), []);
@@ -93,6 +94,8 @@ export default function App() {
       currentSortOrder={currentSortOrder} setSortOrder={setSortOrder} handleCategorySortClick={handleCategorySortClick} categoryButtonLabel={categoryButtonLabel} currentCategoryIndex={currentCategoryIndex}
       handleTouchStart={handleTouchStart} handleTouchMove={handleTouchMove} handleTouchEnd={handleTouchEnd}
       isErrorModalOpen={isErrorModalOpen} setIsErrorModalOpen={setIsErrorModalOpen}
+      isDiagnosticModalOpen={isDiagnosticModalOpen} setIsDiagnosticModalOpen={setIsDiagnosticModalOpen}
+      diagnosticData={{ allSettings, stationsStatus, error, trackError, playerState, trackInfo }}
     />
   );
 }

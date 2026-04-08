@@ -19,15 +19,19 @@ export const useAuth = () => {
         if (firebaseUser.email) {
           try {
             const adminStatus = await checkAdminRole(firebaseUser.email);
-            setIsAdmin(adminStatus);
+            const isDev = import.meta.env.MODE === 'development';
+            console.log('DEBUG: adminStatus:', adminStatus, 'MODE:', import.meta.env.MODE, 'isDev:', isDev);
+            setIsAdmin(adminStatus || isDev);
           } catch (error) {
             console.error('Error checking admin role:', error);
-            setIsAdmin(false);
+            setIsAdmin(import.meta.env.MODE === 'development');
           }
+        } else {
+          setIsAdmin(import.meta.env.MODE === 'development');
         }
       } else {
         setUser(null);
-        setIsAdmin(false);
+        setIsAdmin(import.meta.env.MODE === 'development');
       }
       setIsAuthReady(true);
     });
