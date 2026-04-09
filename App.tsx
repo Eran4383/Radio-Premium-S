@@ -95,21 +95,7 @@ export default function App() {
       handleTouchStart={handleTouchStart} handleTouchMove={handleTouchMove} handleTouchEnd={handleTouchEnd}
       isErrorModalOpen={isErrorModalOpen} setIsErrorModalOpen={setIsErrorModalOpen}
       isDiagnosticModalOpen={isDiagnosticModalOpen} setIsDiagnosticModalOpen={setIsDiagnosticModalOpen}
-      diagnosticData={{ 
-        allSettings, 
-        stationsStatus, 
-        error, 
-        trackError, 
-        playerState, 
-        trackInfo,
-        env: {
-          mode: import.meta.env.MODE,
-          prod: import.meta.env.PROD,
-          dev: import.meta.env.DEV,
-          url: window.location.href,
-          protocol: window.location.protocol
-        }
-      }}
+      diagnosticData={{ allSettings, stationsStatus, error, trackError, playerState, trackInfo }}
     />
   );
 }

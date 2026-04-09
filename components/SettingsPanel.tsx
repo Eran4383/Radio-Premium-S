@@ -90,7 +90,7 @@ const releaseNotes = [
         "הוספת תמיכה בקיצורי מקלדת לדסקטופ."
     ],
   },
-]; 
+];
 
 const DEFAULT_KEY_MAP: KeyMap = {
     playPause: [' ', 'Spacebar'],
@@ -240,16 +240,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <ToggleSwitch label="הצג בקרת עוצמה" enabled={isVolumeControlVisible} onChange={onVolumeControlVisibleChange} />
                     <ToggleSwitch label="הצג שיר הבא" enabled={showNextSong} onChange={onShowNextSongChange} />
                     <ToggleSwitch label="אפשר סיבוב מסך" enabled={isScreenRotationEnabled} onChange={onScreenRotationEnabledChange} />
-                    <button 
-                        onClick={() => {
-                            localStorage.clear();
-                            sessionStorage.clear();
-                            window.location.reload();
-                        }}
-                        className="w-full mt-4 py-2 text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-600/50 rounded-lg transition-all"
-                    >
-                        רענון עמוק (מחיקת מטמון וטעינה מחדש)
-                    </button>
                 </div>
             </SettingsSection>
             {user && (
