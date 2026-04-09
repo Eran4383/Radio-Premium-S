@@ -6,8 +6,6 @@ import MarqueeText from '../MarqueeText';
 interface PlayerInfoProps {
   station: Station;
   trackInfo: StationTrackInfo | null;
-  trackError: string | null;
-  setIsErrorModalOpen: (open: boolean) => void;
   status: string;
   error?: string;
   showNextSong: boolean;
@@ -24,8 +22,6 @@ interface PlayerInfoProps {
 const PlayerInfo: React.FC<PlayerInfoProps> = ({
   station,
   trackInfo,
-  trackError,
-  setIsErrorModalOpen,
   status,
   error,
   showNextSong,
@@ -97,8 +93,6 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({
         <div className="text-sm text-text-secondary leading-tight h-[1.25rem] flex items-center">
           {status === 'ERROR' ? (
             <span className="text-red-400">{error}</span>
-          ) : trackError ? (
-            <span className="text-red-400 cursor-pointer underline" onClick={(e) => { e.stopPropagation(); setIsErrorModalOpen(true); }}>{trackError}</span>
           ) : trackInfo?.current ? (
             <MarqueeText
                 loopDelay={marqueeDelay}
