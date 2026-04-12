@@ -229,7 +229,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         </div>
                     </div>
                     <h4 className="text-xs font-semibold text-text-secondary pt-2 px-3">כללי</h4>
-                    <ToggleSwitch label="נגן חכם (100FM)" enabled={is100fmSmartPlayerEnabled} onChange={on100fmSmartPlayerEnabledChange} />
+                    <ToggleSwitch label="נגן 100FM חכם (תמיכה במעבר שירים)" enabled={is100fmSmartPlayerEnabled} onChange={on100fmSmartPlayerEnabledChange} />
                     <ToggleSwitch label="תצוגה גרפית (מסך מלא)" enabled={isNowPlayingVisualizerEnabled} onChange={onNowPlayingVisualizerEnabledChange} />
                     <ToggleSwitch label="תצוגה גרפית (נגן תחתון)" enabled={isPlayerBarVisualizerEnabled} onChange={onPlayerBarVisualizerEnabledChange} />
                     <ToggleSwitch label="הצג חיווי מצב" enabled={isStatusIndicatorEnabled} onChange={onStatusIndicatorEnabledChange} />

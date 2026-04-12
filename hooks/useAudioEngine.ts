@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react';
 import Hls from 'hls.js';
 import { Station, EqPreset, CustomEqSettings, StationTrackInfo, SmartPlaylistItem } from '../types';
+import { CORS_PROXY_URL } from '../config/constants';
 
 interface AudioEngineProps {
   status: string;
@@ -25,6 +26,8 @@ export const useAudioEngine = ({
   status,
   station,
   volume,
+  shouldUseProxy,
+  isSmartPlayerActive,
   onPlayerEvent,
   isPlaying,
   trackInfo,
@@ -38,6 +41,10 @@ export const useAudioEngine = ({
   const lastTimeUpdateRef = useRef<number>(Date.now());
   const recoveryAttemptRef = useRef<number>(0);
   const watchdogIntervalRef = useRef<number | null>(null);
+  const handoffDoneRef = useRef<string | null>(null);
+
+  const isBypass = !!(station?.stationuuid?.startsWith('100fm-') || 
+                     station?.url_resolved?.includes('streamgates.net'));
 
   const handlePlayError = useCallback((e: any, context: string) => {
     const errorName = e?.name || '';
@@ -87,8 +94,63 @@ export const useAudioEngine = ({
     if (!audio || !station) return;
 
     const playAudio = async () => {
-      const streamUrl = station.url_resolved;
+      let streamUrl = station.url_resolved;
+      
+      // Step A: Instant Play for Bypass stations
+      if (isBypass) {
+        if (audio.src !== streamUrl) {
+          audio.src = streamUrl;
+          audio.removeAttribute('crossOrigin');
+        }
+        audio.play().catch(e => handlePlayError(e, 'Standard (Instant)'));
+        
+        // Step B & C: Background HLS Handoff (only if smart player is enabled)
+        if (isSmartPlayerActive && handoffDoneRef.current !== station.stationuuid) {
+          console.log("[AudioEngine] Starting background HLS handoff for 100FM...");
+          
+          let dvrUrl = streamUrl;
+          if (dvrUrl.includes('streamgates.net') && !dvrUrl.includes('dvr_timeshift')) {
+            const lastSlashIndex = dvrUrl.lastIndexOf('/');
+            if (lastSlashIndex !== -1) {
+              dvrUrl = `${dvrUrl.substring(0, lastSlashIndex)}/playlist_dvr_timeshift-36000.m3u8`;
+            }
+          }
+          
+          const proxiedDvrUrl = `${CORS_PROXY_URL}${dvrUrl}`;
+          
+          if (hlsRef.current) {
+            hlsRef.current.destroy();
+            hlsRef.current = null;
+          }
+          
+          if (Hls.isSupported()) {
+            const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+            hlsRef.current = hls;
+            hls.loadSource(proxiedDvrUrl);
+            
+            // We don't attach yet, we wait for it to be ready
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              console.log("[AudioEngine] HLS Ready. Performing handoff...");
+              handoffDoneRef.current = station.stationuuid;
+              hls.attachMedia(audio);
+              audio.play().catch(e => handlePlayError(e, 'HLS (Handoff)'));
+            });
+            
+            hls.on(Hls.Events.ERROR, (_, data) => {
+              if (data.fatal) {
+                console.warn("[AudioEngine] Background HLS failed, staying on direct stream.");
+                hls.destroy();
+                hlsRef.current = null;
+              }
+            });
+          }
+        }
+        return;
+      }
+
+      // Standard HLS/Direct logic for other stations
       const isHls = streamUrl.includes('.m3u8');
+      if (shouldUseProxy) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
 
       if (hlsRef.current) {
         hlsRef.current.destroy();
@@ -113,22 +175,38 @@ export const useAudioEngine = ({
       } else {
         if (audio.src !== streamUrl) {
           audio.src = streamUrl;
-          audio.removeAttribute('crossOrigin');
+          if (shouldUseProxy) audio.crossOrigin = 'anonymous';
+          else audio.removeAttribute('crossOrigin');
         }
         audio.play().catch(e => handlePlayError(e, 'Standard'));
       }
     };
 
-    if (status === 'LOADING') playAudio();
-    else if (status === 'PAUSED' || status === 'IDLE' || status === 'ERROR') audio.pause();
+    if (status === 'LOADING') {
+      if (station && handoffDoneRef.current !== station.stationuuid) {
+          // Reset handoff if it's a new station
+          handoffDoneRef.current = null;
+      }
+      playAudio();
+    } else if (status === 'PAUSED' || status === 'IDLE' || status === 'ERROR') {
+      audio.pause();
+    }
 
+    return () => {
+      // Don't destroy HLS if we are just playing (handoff might be in progress)
+      // But we should clean up if the station changes or component unmounts
+    };
+  }, [status, station, onPlayerEvent, shouldUseProxy, isSmartPlayerActive, isBypass, handlePlayError]);
+
+  // Cleanup effect
+  useEffect(() => {
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
     };
-  }, [status, station, onPlayerEvent, handlePlayError]);
+  }, [station?.stationuuid]);
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
   
