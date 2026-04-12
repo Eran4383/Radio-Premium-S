@@ -11,4 +11,4 @@ export const PRIORITY_STATIONS = [
   { name: 'רדיו ירושלים', aliases: ['רדיו ירושלים', 'jerusalem radio', '94.5fm', '94fm', '101fm'] }
 ];
 
-export const CORS_PROXY_URL = 'https://corsproxy.io/?';
+export const CORS_PROXY_URL = '/api/proxy?url=';

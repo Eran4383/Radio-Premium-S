@@ -157,7 +157,8 @@ export const useAudioEngine = ({
             }
           }
           
-          const proxiedDvrUrl = `${CORS_PROXY_URL}${dvrUrl}`;
+          const dvrUrlEncoded = encodeURIComponent(dvrUrl);
+          const proxiedDvrUrl = `${CORS_PROXY_URL}${dvrUrlEncoded}`;
           
           if (hlsRef.current) {
             hlsRef.current.destroy();
@@ -165,9 +166,21 @@ export const useAudioEngine = ({
           }
           
           if (Hls.isSupported()) {
-            const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+            const hls = new Hls({ 
+              enableWorker: true, 
+              lowLatencyMode: true,
+              // Custom loader to ensure manifests are proxied but fragments are direct
+              pLoader: class ManifestLoader extends (Hls.DefaultConfig.loader as any) {
+                load(context: any, config: any, callbacks: any) {
+                  if (!context.url.includes('/api/proxy')) {
+                    context.url = `${CORS_PROXY_URL}${encodeURIComponent(context.url)}`;
+                  }
+                  super.load(context, config, callbacks);
+                }
+              } as any
+            });
             hlsRef.current = hls;
-            hls.loadSource(proxiedDvrUrl);
+            hls.loadSource(dvrUrl); // Pass original URL, loader will proxy it
             
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
               console.log("[AudioEngine] HLS Ready. Performing handoff...");
@@ -190,15 +203,25 @@ export const useAudioEngine = ({
 
       // Standard HLS/Direct logic for other stations
       const isHls = streamUrl.includes('.m3u8');
-      if (shouldUseProxy) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
-
+      
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
 
       if (isHls && Hls.isSupported()) {
-        const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+        const hls = new Hls({ 
+          enableWorker: true, 
+          lowLatencyMode: true,
+          pLoader: class ManifestLoader extends (Hls.DefaultConfig.loader as any) {
+            load(context: any, config: any, callbacks: any) {
+              if (shouldUseProxy && !context.url.includes('/api/proxy')) {
+                context.url = `${CORS_PROXY_URL}${encodeURIComponent(context.url)}`;
+              }
+              super.load(context, config, callbacks);
+            }
+          } as any
+        });
         hlsRef.current = hls;
         hls.loadSource(streamUrl);
         hls.attachMedia(audio);

@@ -18,26 +18,16 @@ export const fetchWithFallbackProxy = async (url: string, options: ProxyOptions 
     const { disableCacheBust, ...fetchOptions } = options;
     const cacheBust = disableCacheBust ? '' : `${url.includes('?') ? '&' : '?' }t=${Date.now()}`;
     
-    const proxies = [
-        `${CORS_PROXY_URL}${url}${cacheBust}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url + cacheBust)}`,
-        `https://thingproxy.freeboard.io/fetch/${url}${cacheBust}`,
-        `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url + cacheBust)}`
-    ];
+    const proxyUrl = `${CORS_PROXY_URL}${encodeURIComponent(url + cacheBust)}`;
     
-    let lastError: any;
-    for (const proxyUrl of proxies) {
-        try {
-            const response = await fetch(proxyUrl, { ...fetchOptions, cache: 'no-cache' });
-            if (response.ok) return response;
-            console.warn(`Proxy failed: ${proxyUrl.split('?')[0]} with status ${response.status}`);
-        } catch (e) {
-            lastError = e;
-            console.warn(`Proxy error: ${proxyUrl.split('?')[0]}`, e);
-        }
+    try {
+        const response = await fetch(proxyUrl, { ...fetchOptions, cache: 'no-cache' });
+        if (response.ok) return response;
+        throw new Error(`Proxy failed with status ${response.status}`);
+    } catch (e) {
+        console.error(`Proxy error for ${url}:`, e);
+        throw e;
     }
-    
-    throw lastError || new Error(`All proxies failed for ${url}`);
 };
 
 const API_SERVERS = [
