@@ -54,8 +54,11 @@ export const useAudioEngine = ({
   const recoveryAttemptRef = useRef<number>(0);
   const watchdogIntervalRef = useRef<number | null>(null);
 
+  const isBypass = !!(station?.stationuuid?.startsWith('100fm-') || 
+                     station?.url_resolved?.includes('streamgates.net'));
+
   const setupAudioContext = useCallback(() => {
-    if (!audioRef.current || audioContextRef.current) return;
+    if (!audioRef.current || audioContextRef.current || isBypass) return;
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const context = new AudioContextClass({});
@@ -93,7 +96,7 @@ export const useAudioEngine = ({
     } catch (e) {
       console.error("Failed to initialize AudioContext", e);
     }
-  }, []);
+  }, [isBypass]);
 
   const handlePlayError = useCallback((e: any, context: string) => {
     const errorName = e?.name || '';
@@ -130,21 +133,21 @@ export const useAudioEngine = ({
 
     const audio = audioRef.current;
     let streamUrl = station.url_resolved;
-    if (shouldUseProxy) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
+    if (shouldUseProxy && !isBypass) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
           
     audio.src = '';
     audio.load();
     audio.src = `${streamUrl}?retry=${Date.now()}`;
     audio.load();
     audio.play().catch(e => handlePlayError(e, 'Recovery'));
-  }, [station, onPlayerEvent, shouldUseProxy, handlePlayError]);
+  }, [station, onPlayerEvent, shouldUseProxy, isBypass, handlePlayError]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !station) return;
 
     const playAudio = async () => {
-      if (shouldUseProxy) {
+      if (shouldUseProxy && !isBypass) {
         setupAudioContext();
         if (audioContextRef.current?.state === 'suspended') {
           await audioContextRef.current.resume();
@@ -159,7 +162,7 @@ export const useAudioEngine = ({
         }
       }
 
-      if (shouldUseProxy) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
+      if (shouldUseProxy && !isBypass) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
       const isHls = streamUrl.includes('.m3u8');
 
       if (hlsRef.current) {
@@ -185,7 +188,7 @@ export const useAudioEngine = ({
       } else {
         if (audio.src !== streamUrl) {
           audio.src = streamUrl;
-          if (shouldUseProxy) audio.crossOrigin = 'anonymous';
+          if (shouldUseProxy && !isBypass) audio.crossOrigin = 'anonymous';
           else audio.removeAttribute('crossOrigin');
         }
         audio.play().catch(e => handlePlayError(e, 'Standard'));
@@ -201,7 +204,7 @@ export const useAudioEngine = ({
         hlsRef.current = null;
       }
     };
-  }, [status, station, setupAudioContext, onPlayerEvent, shouldUseProxy, isSmartPlayerActive, handlePlayError]);
+  }, [status, station, setupAudioContext, onPlayerEvent, shouldUseProxy, isSmartPlayerActive, isBypass, handlePlayError]);
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
   
