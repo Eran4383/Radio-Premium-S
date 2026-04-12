@@ -190,6 +190,8 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         setIsRebinding={setIsRebinding} 
         is100fmSmartPlayerEnabled={allSettings.is100fmSmartPlayerEnabled} 
         on100fmSmartPlayerEnabledChange={(v) => setAllSettings(s=>({...s, is100fmSmartPlayerEnabled: v}))} 
+        bluetoothAction={allSettings.bluetoothAction}
+        onBluetoothActionChange={(v) => setAllSettings(s=>({...s, bluetoothAction: v}))}
         openSections={allSettings.settingsSections} 
         onToggleSection={handleToggleSettingsSection} 
       />
@@ -246,6 +248,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         marqueeSpeed={allSettings.marqueeSpeed} 
         onOpenActionMenu={openActionMenu} 
         is100fmSmartPlayerEnabled={allSettings.is100fmSmartPlayerEnabled} 
+        bluetoothAction={allSettings.bluetoothAction}
         smartPlaylist={smartPlaylist} 
       />
     </div>

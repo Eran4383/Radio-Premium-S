@@ -55,6 +55,8 @@ interface SettingsPanelProps {
   setIsRebinding: (isRebinding: boolean) => void;
   is100fmSmartPlayerEnabled: boolean;
   on100fmSmartPlayerEnabledChange: (enabled: boolean) => void;
+  bluetoothAction: 'station' | 'track';
+  onBluetoothActionChange: (action: 'station' | 'track') => void;
   openSections: SettingsSections;
   onToggleSection: (section: keyof SettingsSections) => void;
 }
@@ -123,6 +125,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     keyMap, onKeyMapChange,
     setIsRebinding,
     is100fmSmartPlayerEnabled, on100fmSmartPlayerEnabledChange,
+    bluetoothAction, onBluetoothActionChange,
     openSections, onToggleSection
  }) => {
   const [isVersionHistoryVisible, setIsVersionHistoryVisible] = useState(false);
@@ -230,6 +233,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     </div>
                     <h4 className="text-xs font-semibold text-text-secondary pt-2 px-3">כללי</h4>
                     <ToggleSwitch label="נגן 100FM חכם (תמיכה במעבר שירים)" enabled={is100fmSmartPlayerEnabled} onChange={on100fmSmartPlayerEnabledChange} />
+                    {is100fmSmartPlayerEnabled && (
+                        <div className="px-3 py-2 space-y-2">
+                            <label className="text-xs font-medium text-text-secondary">פעולת כפתורי בלוטות' / שלט</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <SettingsButton label="העברת תחנה" isActive={bluetoothAction === 'station'} onClick={() => onBluetoothActionChange('station')} />
+                                <SettingsButton label="העברת שיר" isActive={bluetoothAction === 'track'} onClick={() => onBluetoothActionChange('track')} />
+                            </div>
+                        </div>
+                    )}
                     <ToggleSwitch label="תצוגה גרפית (מסך מלא)" enabled={isNowPlayingVisualizerEnabled} onChange={onNowPlayingVisualizerEnabledChange} />
                     <ToggleSwitch label="תצוגה גרפית (נגן תחתון)" enabled={isPlayerBarVisualizerEnabled} onChange={onPlayerBarVisualizerEnabledChange} />
                     <ToggleSwitch label="הצג חיווי מצב" enabled={isStatusIndicatorEnabled} onChange={onStatusIndicatorEnabledChange} />

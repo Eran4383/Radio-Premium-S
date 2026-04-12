@@ -20,6 +20,9 @@ interface AudioEngineProps {
   onNext: () => void;
   onPrev: () => void;
   smartPlaylist: SmartPlaylistItem[];
+  bluetoothAction: 'station' | 'track';
+  onSmartNext: () => void;
+  onSmartPrev: () => void;
 }
 
 export const useAudioEngine = ({
@@ -35,6 +38,9 @@ export const useAudioEngine = ({
   onPause,
   onNext,
   onPrev,
+  bluetoothAction,
+  onSmartNext,
+  onSmartPrev,
 }: AudioEngineProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -89,6 +95,19 @@ export const useAudioEngine = ({
     audio.play().catch(e => handlePlayError(e, 'Recovery'));
   }, [station, onPlayerEvent, handlePlayError]);
 
+  const seekToSong = useCallback((timestamp: number) => {
+    const audio = audioRef.current;
+    if (!audio || !audio.seekable.length) return;
+    const now = Math.floor(Date.now() / 1000);
+    const secondsAgo = now - timestamp;
+    const livePosition = audio.seekable.end(0);
+    const targetPosition = Math.max(0, livePosition - secondsAgo);
+    if (isFinite(targetPosition)) {
+        console.log(`[AudioEngine] Seeking to ${targetPosition} (Song timestamp: ${timestamp})`);
+        audio.currentTime = targetPosition;
+    }
+  }, []);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !station) return;
@@ -96,7 +115,7 @@ export const useAudioEngine = ({
     const playAudio = async () => {
       let streamUrl = station.url_resolved;
       
-      // Step A: Instant Play for Bypass stations
+      // Step 1: Instant Play for Bypass stations (100FM / Streamgates)
       if (isBypass) {
         if (audio.src !== streamUrl) {
           audio.src = streamUrl;
@@ -104,7 +123,7 @@ export const useAudioEngine = ({
         }
         audio.play().catch(e => handlePlayError(e, 'Standard (Instant)'));
         
-        // Step B & C: Background HLS Handoff (only if smart player is enabled)
+        // Step 2 & 3: Background HLS Handoff (only if smart player is enabled)
         if (isSmartPlayerActive && handoffDoneRef.current !== station.stationuuid) {
           console.log("[AudioEngine] Starting background HLS handoff for 100FM...");
           
@@ -128,7 +147,6 @@ export const useAudioEngine = ({
             hlsRef.current = hls;
             hls.loadSource(proxiedDvrUrl);
             
-            // We don't attach yet, we wait for it to be ready
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
               console.log("[AudioEngine] HLS Ready. Performing handoff...");
               handoffDoneRef.current = station.stationuuid;
@@ -184,21 +202,14 @@ export const useAudioEngine = ({
 
     if (status === 'LOADING') {
       if (station && handoffDoneRef.current !== station.stationuuid) {
-          // Reset handoff if it's a new station
           handoffDoneRef.current = null;
       }
       playAudio();
     } else if (status === 'PAUSED' || status === 'IDLE' || status === 'ERROR') {
       audio.pause();
     }
-
-    return () => {
-      // Don't destroy HLS if we are just playing (handoff might be in progress)
-      // But we should clean up if the station changes or component unmounts
-    };
   }, [status, station, onPlayerEvent, shouldUseProxy, isSmartPlayerActive, isBypass, handlePlayError]);
 
-  // Cleanup effect
   useEffect(() => {
     return () => {
       if (hlsRef.current) {
@@ -219,11 +230,21 @@ export const useAudioEngine = ({
       });
       navigator.mediaSession.setActionHandler('play', onPlay);
       navigator.mediaSession.setActionHandler('pause', onPause);
-      navigator.mediaSession.setActionHandler('nexttrack', onNext);
-      navigator.mediaSession.setActionHandler('previoustrack', onPrev);
+      
+      const handleNextAction = () => {
+        if (bluetoothAction === 'track' && isSmartPlayerActive) onSmartNext();
+        else onNext();
+      };
+      const handlePrevAction = () => {
+        if (bluetoothAction === 'track' && isSmartPlayerActive) onSmartPrev();
+        else onPrev();
+      };
+
+      navigator.mediaSession.setActionHandler('nexttrack', handleNextAction);
+      navigator.mediaSession.setActionHandler('previoustrack', handlePrevAction);
       navigator.mediaSession.playbackState = status === 'PLAYING' ? 'playing' : 'paused';
     }
-  }, [station, status, trackInfo, onPlay, onPause, onNext, onPrev]);
+  }, [station, status, trackInfo, onPlay, onPause, onNext, onPrev, bluetoothAction, isSmartPlayerActive, onSmartNext, onSmartPrev]);
 
   useEffect(() => {
     const clearWatchdog = () => { if (watchdogIntervalRef.current) { clearInterval(watchdogIntervalRef.current); watchdogIntervalRef.current = null; } };
@@ -264,5 +285,5 @@ export const useAudioEngine = ({
     return clearWatchdog;
   }, [status, attemptRecovery]);
 
-  return { audioRef, attemptRecovery };
+  return { audioRef, attemptRecovery, seekToSong };
 };

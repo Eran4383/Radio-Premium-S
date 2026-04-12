@@ -26,6 +26,7 @@ export const defaultSettings: AllSettings = {
         eqCustom: ['5']
     },
     is100fmSmartPlayerEnabled: false,
+    bluetoothAction: 'station',
     isScreenRotationEnabled: false,
     settingsSections: {
         theme: true,

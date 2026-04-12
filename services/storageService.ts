@@ -44,6 +44,7 @@ export const saveSettingsToLocalStorage = (settings: AllSettings) => {
     saveToLocal('radio-sort-order-favorites', settings.sortOrderFavorites);
     saveToLocal('radio-key-map', settings.keyMap);
     saveToLocal('radio-100fm-smart-player-enabled', settings.is100fmSmartPlayerEnabled);
+    saveToLocal('radio-bluetooth-action', settings.bluetoothAction);
     saveToLocal('radio-screen-rotation-enabled', settings.isScreenRotationEnabled);
     saveToLocal('radio-settings-sections', settings.settingsSections);
 };
@@ -72,6 +73,7 @@ export const loadSettingsFromLocalStorage = (): AllSettings => {
   const sortOrderFavorites = getFromLocal<SortOrder>('radio-sort-order-favorites', defaultSettings.sortOrderFavorites);
   const keyMap = getFromLocal<KeyMap>('radio-key-map', defaultSettings.keyMap);
   const is100fmSmartPlayerEnabled = getFromLocal<boolean>('radio-100fm-smart-player-enabled', defaultSettings.is100fmSmartPlayerEnabled);
+  const bluetoothAction = getFromLocal<'station' | 'track'>('radio-bluetooth-action', defaultSettings.bluetoothAction);
   const isScreenRotationEnabled = getFromLocal<boolean>('radio-screen-rotation-enabled', defaultSettings.isScreenRotationEnabled);
   const settingsSections = getFromLocal<SettingsSections>('radio-settings-sections', defaultSettings.settingsSections);
 
@@ -81,6 +83,6 @@ export const loadSettingsFromLocalStorage = (): AllSettings => {
     isStatusIndicatorEnabled, isVolumeControlVisible, showNextSong, gridSize,
     isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled,
     marqueeSpeed, marqueeDelay, filter, sortOrderAll, sortOrderFavorites,
-    keyMap, is100fmSmartPlayerEnabled, isScreenRotationEnabled, settingsSections
+    keyMap, is100fmSmartPlayerEnabled, bluetoothAction, isScreenRotationEnabled, settingsSections
   };
 };
