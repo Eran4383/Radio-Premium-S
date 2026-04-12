@@ -12,6 +12,7 @@ export interface Station {
   countrycode: string;
   codec: string;
   bitrate: number;
+  sliders?: { audio: string; info: string }[];
 }
 
 export interface StationTrackInfo {

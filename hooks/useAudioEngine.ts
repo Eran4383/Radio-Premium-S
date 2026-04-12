@@ -99,14 +99,26 @@ export const useAudioEngine = ({
     try {
       const audio = audioRef.current;
       if (!audio) return;
-      const liveEdge = audio.seekable.length > 0 ? audio.seekable.end(audio.seekable.length - 1) : audio.currentTime;
+      
+      const liveEdge = audio.seekable && audio.seekable.length > 0 
+        ? audio.seekable.end(audio.seekable.length - 1) 
+        : audio.currentTime;
+      
       const secondsAgo = (Date.now() / 1000) - songStartTimestamp;
       const targetTime = liveEdge - secondsAgo;
-      if (Number.isFinite(targetTime) && targetTime >= 0) {
+      
+      console.log('--- SEEK DEBUG ---');
+      console.log('Timestamp:', songStartTimestamp, 'Seconds Ago:', secondsAgo);
+      console.log('Live Edge:', liveEdge, 'Target Time:', targetTime);
+
+      if (targetTime < 0) {
+        audio.currentTime = 0;
+        console.warn('Target time negative, seeking to 0');
+      } else if (Number.isFinite(targetTime)) {
         audio.currentTime = targetTime;
       }
     } catch (e) {
-      console.error("Seek failed:", e);
+      console.error("[AudioEngine] Seek error:", e);
     }
   }, []);
 
@@ -130,10 +142,18 @@ export const useAudioEngine = ({
           console.log("[AudioEngine] Starting background HLS handoff for 100FM...");
           
           let dvrUrl = streamUrl;
-          if (dvrUrl.includes('streamgates.net') && !dvrUrl.includes('dvr_timeshift')) {
-            const lastSlashIndex = dvrUrl.lastIndexOf('/');
-            if (lastSlashIndex !== -1) {
-              dvrUrl = `${dvrUrl.substring(0, lastSlashIndex)}/playlist_dvr_timeshift-36000.m3u8`;
+          if (station.sliders && station.sliders.length > 0) {
+            dvrUrl = station.sliders[0].audio;
+          } else if (dvrUrl.includes('streamgates.net')) {
+            // Fallback logic for 100FM stations
+            dvrUrl = dvrUrl.replace('radios-audio', 'radios-audio-tms')
+                           .replace('playlist.m3u8', 'playlist_dvr_timeshift-43200.m3u8');
+            
+            if (!dvrUrl.includes('playlist_dvr_timeshift')) {
+              const lastSlashIndex = dvrUrl.lastIndexOf('/');
+              if (lastSlashIndex !== -1) {
+                dvrUrl = `${dvrUrl.substring(0, lastSlashIndex)}/playlist_dvr_timeshift-43200.m3u8`;
+              }
             }
           }
           

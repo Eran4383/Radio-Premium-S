@@ -85,6 +85,7 @@ const fetch100fmStations = async (): Promise<Station[]> => {
       countrycode: 'IL',
       codec: 'AAC',
       bitrate: 128,
+      sliders: s.sliders || [],
     })).filter((s: any) => s.url_resolved);
   } catch (error) {
     return [];
