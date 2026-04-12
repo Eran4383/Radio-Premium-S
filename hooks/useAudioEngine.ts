@@ -130,13 +130,7 @@ export const useAudioEngine = ({
 
     const audio = audioRef.current;
     let streamUrl = station.url_resolved;
-    
-    // Auto-proxy for HTTP streams on HTTPS site
-    const isHttps = window.location.protocol === 'https:';
-    const isStreamHttp = streamUrl.startsWith('http:');
-    const needsProxy = shouldUseProxy || (isHttps && isStreamHttp);
-
-    if (needsProxy) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
+    if (shouldUseProxy) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
           
     audio.src = '';
     audio.load();
@@ -150,18 +144,14 @@ export const useAudioEngine = ({
     if (!audio || !station) return;
 
     const playAudio = async () => {
-      const isHttps = window.location.protocol === 'https:';
-      let streamUrl = station.url_resolved;
-      const isStreamHttp = streamUrl.startsWith('http:');
-      const needsProxy = shouldUseProxy || (isHttps && isStreamHttp);
-
-      if (needsProxy) {
+      if (shouldUseProxy) {
         setupAudioContext();
         if (audioContextRef.current?.state === 'suspended') {
           await audioContextRef.current.resume();
         }
       }
       
+      let streamUrl = station.url_resolved;
       if (isSmartPlayerActive && streamUrl.includes('streamgates.net') && !streamUrl.includes('dvr_timeshift')) {
         const lastSlashIndex = streamUrl.lastIndexOf('/');
         if (lastSlashIndex !== -1) {
@@ -169,7 +159,7 @@ export const useAudioEngine = ({
         }
       }
 
-      if (needsProxy) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
+      if (shouldUseProxy) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
       const isHls = streamUrl.includes('.m3u8');
 
       if (hlsRef.current) {
@@ -178,15 +168,7 @@ export const useAudioEngine = ({
       }
 
       if (isHls && Hls.isSupported()) {
-        const hls = new Hls({ 
-          enableWorker: true, 
-          lowLatencyMode: true,
-          backBufferLength: 60,
-          maxBufferLength: 10,
-          maxMaxBufferLength: 20,
-          liveSyncDurationCount: 2,
-          liveMaxLatencyDurationCount: 5,
-        });
+        const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
         hlsRef.current = hls;
         hls.loadSource(streamUrl);
         hls.attachMedia(audio);
@@ -203,22 +185,15 @@ export const useAudioEngine = ({
       } else {
         if (audio.src !== streamUrl) {
           audio.src = streamUrl;
-          if (needsProxy) audio.crossOrigin = 'anonymous';
+          if (shouldUseProxy) audio.crossOrigin = 'anonymous';
           else audio.removeAttribute('crossOrigin');
         }
         audio.play().catch(e => handlePlayError(e, 'Standard'));
       }
     };
 
-    if (status === 'LOADING') {
-      playAudio();
-    } else if (status === 'PLAYING') {
-      if (audio.paused) {
-        audio.play().catch(e => handlePlayError(e, 'Resume'));
-      }
-    } else if (status === 'PAUSED' || status === 'IDLE' || status === 'ERROR') {
-      audio.pause();
-    }
+    if (status === 'LOADING') playAudio();
+    else if (status === 'PAUSED' || status === 'IDLE' || status === 'ERROR') audio.pause();
 
     return () => {
       if (hlsRef.current) {

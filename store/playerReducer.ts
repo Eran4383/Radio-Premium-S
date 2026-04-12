@@ -3,7 +3,6 @@ import { PlayerState, PlayerAction } from '../types/player';
 export const initialPlayerState: PlayerState = {
   status: 'IDLE',
   station: null,
-  isDvrMode: false,
 };
 
 export function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
@@ -13,13 +12,9 @@ export function playerReducer(state: PlayerState, action: PlayerAction): PlayerS
         if (state.status === 'PLAYING') return { ...state, status: 'PAUSED' };
         else if (state.status === 'PAUSED' || state.status === 'ERROR' || state.status === 'IDLE') return { ...state, status: 'LOADING' };
       }
-      return { ...state, status: 'LOADING', station: action.payload, error: undefined, isDvrMode: false };
+      return { status: 'LOADING', station: action.payload, error: undefined };
     case 'PLAY':
-       return { ...state, status: 'LOADING', station: action.payload, error: undefined, isDvrMode: false };
-    case 'SET_DVR_MODE':
-      return { ...state, isDvrMode: action.payload };
-    case 'SET_PAUSE_DATA':
-      return { ...state, lastPauseTimestamp: action.payload.timestamp, lastPausePosition: action.payload.position };
+       return { ...state, status: 'LOADING', station: action.payload, error: undefined };
     case 'TOGGLE_PAUSE':
       if (state.status === 'PLAYING') return { ...state, status: 'PAUSED' };
       if (state.status === 'PAUSED' && state.station) return { ...state, status: 'LOADING', error: undefined };

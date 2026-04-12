@@ -9,8 +9,6 @@ import AdminPanel from './AdminPanel';
 import StationListSkeleton from './StationListSkeleton';
 import MergeDataModal from './MergeDataModal';
 import ConfirmRemoveModal from './ConfirmRemoveModal';
-import ErrorModal from './ErrorModal';
-import DiagnosticModal from './DiagnosticModal';
 import { MenuIcon } from './Icons';
 
 interface MainLayoutProps {
@@ -56,13 +54,7 @@ interface MainLayoutProps {
   frequencyData: Uint8Array;
   setFrequencyData: (data: Uint8Array) => void;
   trackInfo: StationTrackInfo | null;
-  trackError: string | null;
   smartPlaylist: SmartPlaylistItem[];
-  isErrorModalOpen: boolean;
-  setIsErrorModalOpen: (open: boolean) => void;
-  isDiagnosticModalOpen: boolean;
-  setIsDiagnosticModalOpen: (open: boolean) => void;
-  diagnosticData: any;
   
   // UI State
   isNowPlayingOpen: boolean;
@@ -90,11 +82,6 @@ interface MainLayoutProps {
   handleTouchStart: (e: React.TouchEvent) => void;
   handleTouchMove: (e: React.TouchEvent) => void;
   handleTouchEnd: () => void;
-  
-  // Sync
-  isCloudSyncing: boolean;
-  onForcePush: () => void;
-  onForcePull: () => void;
 }
 
 const SortButton: React.FC<{ label: string; order: SortOrder; currentOrder: SortOrder; setOrder: (order: SortOrder) => void }> = ({ label, order, currentOrder, setOrder }) => (
@@ -108,14 +95,12 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
     handleManualUpdateCheck, updateStatus, isRebinding, setIsRebinding,
     stations, displayedStations, stationsStatus, error, handleSelectStation, isFavorite, toggleFavorite, handleReorder, handleAdminUpdate,
     playerState, handlePlayerEvent, handlePlayPause, handlePlay, handlePause, handleNext, handlePrev, handleVolumeChange,
-    frequencyData, setFrequencyData, trackInfo, trackError, smartPlaylist, isErrorModalOpen, setIsErrorModalOpen,
-    isDiagnosticModalOpen, setIsDiagnosticModalOpen, diagnosticData,
+    frequencyData, setFrequencyData, trackInfo, smartPlaylist,
     isNowPlayingOpen, setIsNowPlayingOpen, isVisualizerFullscreen, setIsVisualizerFullscreen,
     actionMenuState, closeActionMenu, openActionMenu,
     mergeModal, pendingRemoval, confirmRemoval, cancelRemoval,
     currentSortOrder, setSortOrder, handleCategorySortClick, categoryButtonLabel, currentCategoryIndex,
-    handleTouchStart, handleTouchMove, handleTouchEnd,
-    isCloudSyncing, onForcePush, onForcePull
+    handleTouchStart, handleTouchMove, handleTouchEnd
   } = props;
 
   return (
@@ -126,16 +111,6 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         stationName={pendingRemoval?.name || ''}
         onConfirm={confirmRemoval}
         onCancel={cancelRemoval}
-      />
-      <ErrorModal 
-        isOpen={isErrorModalOpen}
-        onClose={() => setIsErrorModalOpen(false)}
-        error={trackError}
-      />
-      <DiagnosticModal 
-        isOpen={isDiagnosticModalOpen}
-        onClose={() => setIsDiagnosticModalOpen(false)}
-        data={diagnosticData}
       />
       <AdminPanel 
         isOpen={isAdminPanelOpen}
@@ -149,7 +124,6 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
       <header className="p-4 bg-bg-secondary/50 backdrop-blur-sm sticky top-0 z-20 shadow-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-text-secondary hover:text-text-primary" aria-label="הגדרות"><MenuIcon className="w-6 h-6" /></button>
-            <button onClick={() => setIsDiagnosticModalOpen(true)} className="p-2 text-red-500 hover:text-red-400 font-bold text-xs" aria-label="אבחון">אבחון</button>
             <div className="flex items-center bg-gray-700 rounded-full p-1">
               <button onClick={() => setAllSettings(s => ({...s, filter: StationFilter.All}))} className={`px-4 py-1 text-sm font-medium rounded-full transition-colors ${allSettings.filter === StationFilter.All ? 'bg-accent text-white' : 'text-gray-300'}`}>{StationFilter.All}</button>
               <button onClick={() => setAllSettings(s => ({...s, filter: StationFilter.Favorites}))} className={`px-4 py-1 text-sm font-medium rounded-full transition-colors ${allSettings.filter === StationFilter.Favorites ? 'bg-accent text-white' : 'text-gray-300'}`}>{StationFilter.Favorites}</button>
@@ -218,9 +192,6 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         on100fmSmartPlayerEnabledChange={(v) => setAllSettings(s=>({...s, is100fmSmartPlayerEnabled: v}))} 
         openSections={allSettings.settingsSections} 
         onToggleSection={handleToggleSettingsSection} 
-        isCloudSyncing={isCloudSyncing}
-        onForcePush={onForcePush}
-        onForcePull={onForcePull}
       />
       <NowPlaying 
         isOpen={isNowPlayingOpen} 
@@ -262,7 +233,6 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         volume={allSettings.volume} 
         onVolumeChange={handleVolumeChange} 
         trackInfo={trackInfo} 
-        trackError={trackError}
         showNextSong={allSettings.showNextSong} 
         onOpenNowPlaying={() => setIsNowPlayingOpen(true)} 
         setFrequencyData={setFrequencyData} 
@@ -277,8 +247,6 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         onOpenActionMenu={openActionMenu} 
         is100fmSmartPlayerEnabled={allSettings.is100fmSmartPlayerEnabled} 
         smartPlaylist={smartPlaylist} 
-        isErrorModalOpen={isErrorModalOpen}
-        setIsErrorModalOpen={setIsErrorModalOpen}
       />
     </div>
   );

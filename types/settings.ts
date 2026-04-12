@@ -91,7 +91,6 @@ export interface SettingsSections {
     eq: boolean;
     interface: boolean;
     shortcuts: boolean;
-    sync: boolean;
 }
 
 export const CATEGORY_SORTS: { order: SortOrder; label: string }[] = [

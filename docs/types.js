@@ -1,21 +1,27 @@
+
 export const THEMES = ['dark', 'light', 'blue', 'sunset', 'forest', 'ocean', 'rose', 'matrix'];
+
 export const EQ_PRESET_KEYS = ['flat', 'bassBoost', 'vocalBoost', 'rock', 'movie', 'custom'];
+
 export const EQ_PRESETS = {
-    flat: { bass: 0, mid: 0, treble: 0 },
-    bassBoost: { bass: 6, mid: -2, treble: -2 },
-    vocalBoost: { bass: -2, mid: 4, treble: 2 },
-    rock: { bass: 4, mid: -3, treble: 4 },
-    movie: { bass: 3, mid: 2, treble: 1 },
+  flat: { bass: 0, mid: 0, treble: 0 },
+  bassBoost: { bass: 6, mid: -2, treble: -2 },
+  vocalBoost: { bass: -2, mid: 4, treble: 2 },
+  rock: { bass: 4, mid: -3, treble: 4 },
+  movie: { bass: 3, mid: 2, treble: 1 },
 };
+
 export const EQ_PRESET_LABELS = {
-    flat: 'רגיל',
-    bassBoost: 'הגברת בס',
-    vocalBoost: 'הגברת קולות',
-    rock: 'רוק',
-    movie: 'סרט',
-    custom: 'מותאם אישית',
+  flat: 'רגיל',
+  bassBoost: 'הגברת בס',
+  vocalBoost: 'הגברת קולות',
+  rock: 'רוק',
+  movie: 'סרט',
+  custom: 'מותאם אישית',
 };
+
 export const VISUALIZER_STYLES = ['bars', 'wave', 'pulse', 'spectrum', 'aurora', 'rings', 'static', 'vortex', 'speaker', 'galaxy', 'equalizer'];
+
 export const VISUALIZER_STYLE_LABELS = {
     bars: 'עמודות',
     wave: 'גל קול',
@@ -29,12 +35,14 @@ export const VISUALIZER_STYLE_LABELS = {
     galaxy: 'גלקסיה',
     equalizer: 'אקולייזר',
 };
+
 export const GRID_SIZES = [1, 2, 3, 4, 5];
-export var StationFilter;
-(function (StationFilter) {
-    StationFilter["All"] = "\u05D4\u05DB\u05DC";
-    StationFilter["Favorites"] = "\u05DE\u05D5\u05E2\u05D3\u05E4\u05D9\u05DD";
-})(StationFilter || (StationFilter = {}));
+
+export const StationFilter = {
+  All: 'הכל',
+  Favorites: 'מועדפים',
+};
+
 export const KEY_ACTION_LABELS = {
     playPause: 'נגן / השהה',
     volumeUp: 'הגבר עוצמה',

@@ -57,9 +57,6 @@ interface SettingsPanelProps {
   on100fmSmartPlayerEnabledChange: (enabled: boolean) => void;
   openSections: SettingsSections;
   onToggleSection: (section: keyof SettingsSections) => void;
-  isCloudSyncing: boolean;
-  onForcePush: () => void;
-  onForcePull: () => void;
 }
 
 const releaseNotes = [
@@ -90,7 +87,7 @@ const releaseNotes = [
         "הוספת תמיכה בקיצורי מקלדת לדסקטופ."
     ],
   },
-]; 
+];
 
 const DEFAULT_KEY_MAP: KeyMap = {
     playPause: [' ', 'Spacebar'],
@@ -126,8 +123,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     keyMap, onKeyMapChange,
     setIsRebinding,
     is100fmSmartPlayerEnabled, on100fmSmartPlayerEnabledChange,
-    openSections, onToggleSection,
-    isCloudSyncing, onForcePush, onForcePull
+    openSections, onToggleSection
  }) => {
   const [isVersionHistoryVisible, setIsVersionHistoryVisible] = useState(false);
   const [listeningFor, setListeningFor] = useState<KeyAction | null>(null);
@@ -240,44 +236,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <ToggleSwitch label="הצג בקרת עוצמה" enabled={isVolumeControlVisible} onChange={onVolumeControlVisibleChange} />
                     <ToggleSwitch label="הצג שיר הבא" enabled={showNextSong} onChange={onShowNextSongChange} />
                     <ToggleSwitch label="אפשר סיבוב מסך" enabled={isScreenRotationEnabled} onChange={onScreenRotationEnabledChange} />
-                    <button 
-                        onClick={() => {
-                            localStorage.clear();
-                            sessionStorage.clear();
-                            window.location.reload();
-                        }}
-                        className="w-full mt-4 py-2 text-xs bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-600/50 rounded-lg transition-all"
-                    >
-                        רענון עמוק (מחיקת מטמון וטעינה מחדש)
-                    </button>
                 </div>
             </SettingsSection>
-            {user && (
-                <SettingsSection title="סנכרון ענן" isOpen={openSections.sync} onToggle={() => onToggleSection('sync')}>
-                    <div className="space-y-3 p-1">
-                        <p className="text-[10px] text-text-secondary leading-tight mb-2">
-                            אם הנתונים לא מסתנכרנים או שאתה רוצה לגבות ידנית את המועדפים שלך לענן.
-                        </p>
-                        <button 
-                            onClick={onForcePush}
-                            disabled={isCloudSyncing}
-                            className="w-full py-2 px-3 text-xs bg-bg-primary hover:bg-accent/10 border border-gray-700 hover:border-accent/50 rounded-lg flex items-center justify-between transition-all disabled:opacity-50"
-                        >
-                            <span>דחוף הגדרות לענן</span>
-                            <span>{isCloudSyncing ? '⏳' : '📤'}</span>
-                        </button>
-                        <button 
-                            onClick={onForcePull}
-                            disabled={isCloudSyncing}
-                            className="w-full py-2 px-3 text-xs bg-bg-primary hover:bg-accent/10 border border-gray-700 hover:border-accent/50 rounded-lg flex items-center justify-between transition-all disabled:opacity-50"
-                        >
-                            <span>משוך הגדרות מהענן</span>
-                            <span>{isCloudSyncing ? '⏳' : '📥'}</span>
-                        </button>
-                        {isCloudSyncing && <p className="text-[10px] text-accent animate-pulse text-center">מסתנכרן...</p>}
-                    </div>
-                </SettingsSection>
-            )}
             <SettingsSection title="קיצורי מקלדת" isOpen={openSections.shortcuts} onToggle={() => onToggleSection('shortcuts')}>
                 <div className="space-y-2">
                     <h4 className="text-xs font-semibold text-text-secondary pt-1 px-1">כללי</h4>

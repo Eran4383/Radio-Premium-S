@@ -17,10 +17,6 @@
     *   Update `buildDate` to the current date (DD.MM.YYYY). Do NOT include the time.
     *   Increment `version` if significant features are added (optional).
 5.  **SINGLE SOURCE OF TRUTH**: This file, `INSTRUCTIONS.md`, contains the definitive workflow. Adhere to it strictly. Failure to update the `docs/` folder results in a broken app.
-6.  **SMART RESUME & DUAL PLAYLIST**:
-    *   **MANDATORY**: The audio engine (`useAudioEngine.ts`) uses a Dual Playlist Strategy for 100FM stations. It loads the fast Live URL initially and only switches to the heavy DVR URL (`timeshift-36000.m3u8`) when seeking (Next/Prev) or waking up from Deep Sleep.
-    *   **DEEP SLEEP**: When paused, the player lives in the background for 3 minutes before destroying HLS to save battery. On resume, if the gap is < 10 hours, it re-initializes HLS with the DVR URL and auto-seeks to the exact pause timestamp.
-    *   **REACT LIFECYCLE**: Effect 1 (Station Load) listens ONLY to URL/mode changes. Effect 2 (Play/Pause) listens ONLY to status. NEVER destroy the player on Pause. Cleanup function of Effect 1 is the ONLY place `hls.destroy()` is allowed.
 
 ---
 

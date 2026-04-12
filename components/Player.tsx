@@ -32,13 +32,10 @@ interface PlayerProps {
   onOpenActionMenu: (songTitle: string) => void;
   is100fmSmartPlayerEnabled: boolean;
   smartPlaylist: SmartPlaylistItem[];
-  trackError: string | null;
-  isErrorModalOpen: boolean;
-  setIsErrorModalOpen: (open: boolean) => void;
 }
 
 const Player: React.FC<PlayerProps> = (props) => {
-  const { playerState, onPlayPause, onPlay, onPause, onNext, onPrev, onPlayerEvent, eqPreset, customEqSettings, volume, trackInfo, trackError, showNextSong, onOpenNowPlaying, setFrequencyData, frequencyData, isVisualizerEnabled, shouldUseProxy, marqueeDelay, isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled, marqueeSpeed, onOpenActionMenu, is100fmSmartPlayerEnabled, smartPlaylist, isErrorModalOpen, setIsErrorModalOpen } = props;
+  const { playerState, onPlayPause, onPlay, onPause, onNext, onPrev, onPlayerEvent, eqPreset, customEqSettings, volume, trackInfo, showNextSong, onOpenNowPlaying, setFrequencyData, frequencyData, isVisualizerEnabled, shouldUseProxy, marqueeDelay, isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled, marqueeSpeed, onOpenActionMenu, is100fmSmartPlayerEnabled, smartPlaylist } = props;
   const { status, station, error } = playerState;
   const isPlaying = status === 'PLAYING';
   const isLoading = status === 'LOADING';
@@ -92,7 +89,7 @@ const Player: React.FC<PlayerProps> = (props) => {
       <div className="relative bg-bg-secondary/80 backdrop-blur-lg shadow-t-lg">
         {isVisualizerEnabled && isPlaying && <PlayerVisualizer frequencyData={frequencyData} />}
         <div className="max-w-7xl mx-auto p-4 flex items-center justify-between gap-4">
-          <PlayerInfo station={station} trackInfo={trackInfo} trackError={trackError} setIsErrorModalOpen={setIsErrorModalOpen} status={status} error={error} showNextSong={showNextSong} onOpenNowPlaying={onOpenNowPlaying} onOpenActionMenu={onOpenActionMenu} isMarqueeProgramEnabled={isMarqueeProgramEnabled} isMarqueeCurrentTrackEnabled={isMarqueeCurrentTrackEnabled} isMarqueeNextTrackEnabled={isMarqueeNextTrackEnabled} marqueeSpeed={marqueeSpeed} marqueeDelay={marqueeDelay} isSmartPlayerActive={!!isSmartPlayerActive} />
+          <PlayerInfo station={station} trackInfo={trackInfo} status={status} error={error} showNextSong={showNextSong} onOpenNowPlaying={onOpenNowPlaying} onOpenActionMenu={onOpenActionMenu} isMarqueeProgramEnabled={isMarqueeProgramEnabled} isMarqueeCurrentTrackEnabled={isMarqueeCurrentTrackEnabled} isMarqueeNextTrackEnabled={isMarqueeNextTrackEnabled} marqueeSpeed={marqueeSpeed} marqueeDelay={marqueeDelay} isSmartPlayerActive={!!isSmartPlayerActive} />
           <PlayerControls isActuallyPlaying={isPlaying} isLoading={isLoading} onPlayPause={onPlayPause} onSmartPrev={handleSmartPrev} onSmartNext={handleSmartNext} />
         </div>
         <audio ref={audioRef} onPlaying={() => onPlayerEvent({ type: 'STREAM_STARTED' })} onPause={() => onPlayerEvent({ type: 'STREAM_PAUSED' })} onTimeUpdate={() => {}} onStalled={() => attemptRecovery()} onWaiting={() => {}} onError={() => onPlayerEvent({ type: 'STREAM_ERROR', payload: "שגיאה בניגון התחנה."})} />

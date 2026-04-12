@@ -47,50 +47,32 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
         if (isInitialSyncDone) return;
 
         setIsCloudSyncing(true);
-        console.log(`[Sync Debug] Current User Email: ${user.email}`);
-        console.log(`[Sync Debug] Current User UID: ${user.uid}`);
-        console.log(`[Sync Debug] Project ID: ${import.meta.env.VITE_FIREBASE_PROJECT_ID}`);
+        console.log(`[Sync] Starting sync for user: ${user.email} (${user.uid})`);
         
         const hasSyncedBefore = localStorage.getItem('radio-has-synced-with-account') === 'true';
-        console.log(`[Sync Debug] Has synced before on this device? ${hasSyncedBefore}`);
-
         const rawCloudSettings = await getUserSettings(user.uid);
-        console.log(`[Sync Debug] Raw cloud settings found? ${!!rawCloudSettings}`);
-        
-        if (rawCloudSettings) {
-          console.log(`[Sync Debug] Cloud favorites count: ${rawCloudSettings.favorites?.length || 0}`);
-        }
-
         const cloudSettings = normalizeSettings(rawCloudSettings);
 
-        if (!rawCloudSettings) {
-          // Case: New user or new project - UPLOAD local settings to cloud
-          const localSettings = settingsRef.current;
-          console.log("[Sync Debug] No cloud settings found. Initializing cloud with local settings.");
-          await saveUserSettings(user.uid, localSettings);
-          setAllSettings(localSettings);
-          localStorage.setItem('radio-has-synced-with-account', 'true');
-          setIsInitialSyncDone(true);
-          setIsCloudSyncing(false);
-          return;
-        }
-
-        if (hasSyncedBefore) {
-          console.log("[Sync Debug] Loading settings from cloud (already synced before).");
+        if (hasSyncedBefore || !rawCloudSettings) {
+          console.log("[Sync] Loading settings from cloud, skipping conflict check.");
           setAllSettings(cloudSettings);
+          if (!rawCloudSettings) {
+            console.log("[Sync] No cloud settings found, creating initial document.");
+            await saveUserSettings(user.uid, cloudSettings);
+          }
           localStorage.setItem('radio-has-synced-with-account', 'true');
           setIsInitialSyncDone(true);
           setIsCloudSyncing(false);
         } else {
           const localSettings = settingsRef.current;
-          console.log("[Sync Debug] Comparing settings for conflict...");
+          console.log("[Sync] Comparing settings for conflict...");
           
           if (settingsHaveConflict(localSettings, cloudSettings)) {
-            console.log("[Sync Debug] Conflict detected. Opening merge modal.");
+            console.log("[Sync] Conflict detected. Opening merge modal.");
             setMergeModal({
               isOpen: true,
               onMerge: () => {
-                console.log("[Sync Debug] User chose to merge/keep local settings.");
+                console.log("[Sync] User chose to merge/keep local settings.");
                 setAllSettings(localSettings);
                 saveUserSettings(user.uid, localSettings);
                 localStorage.setItem('radio-has-synced-with-account', 'true');
@@ -99,7 +81,7 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
                 setIsCloudSyncing(false);
               },
               onDiscardLocal: () => {
-                console.log("[Sync Debug] User chose to discard local settings and use cloud.");
+                console.log("[Sync] User chose to discard local settings and use cloud.");
                 setAllSettings(cloudSettings);
                 localStorage.setItem('radio-has-synced-with-account', 'true');
                 setMergeModal(prev => ({ ...prev, isOpen: false }));
@@ -108,7 +90,7 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
               },
             });
           } else {
-            console.log("[Sync Debug] No conflicts found. Using cloud settings.");
+            console.log("[Sync] No conflicts found. Using cloud settings.");
             setAllSettings(cloudSettings);
             localStorage.setItem('radio-has-synced-with-account', 'true');
             setIsInitialSyncDone(true);
@@ -171,26 +153,6 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
     }
   }, [updateStatus]);
 
-  const forcePushToCloud = async () => {
-    if (!user) return;
-    setIsCloudSyncing(true);
-    await saveUserSettings(user.uid, allSettings);
-    setIsCloudSyncing(false);
-    console.log("[Sync] Force pushed settings to cloud.");
-  };
-
-  const forcePullFromCloud = async () => {
-    if (!user) return;
-    setIsCloudSyncing(true);
-    const raw = await getUserSettings(user.uid);
-    if (raw) {
-      const normalized = normalizeSettings(raw);
-      setAllSettings(normalized);
-      console.log("[Sync] Force pulled settings from cloud.");
-    }
-    setIsCloudSyncing(false);
-  };
-
   return {
     allSettings,
     setAllSettings,
@@ -200,8 +162,6 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
     setMergeModal,
     handleToggleSettingsSection,
     updateStatus,
-    handleManualUpdateCheck,
-    forcePushToCloud,
-    forcePullFromCloud
+    handleManualUpdateCheck
   };
 };
