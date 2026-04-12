@@ -1,7 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import Hls from 'hls.js';
-import { Station, EqPreset, EQ_PRESETS, CustomEqSettings, StationTrackInfo, SmartPlaylistItem } from '../types';
-import { CORS_PROXY_URL } from '../config/constants';
+import { Station, EqPreset, CustomEqSettings, StationTrackInfo, SmartPlaylistItem } from '../types';
 
 interface AudioEngineProps {
   status: string;
@@ -26,77 +25,19 @@ export const useAudioEngine = ({
   status,
   station,
   volume,
-  eqPreset,
-  customEqSettings,
-  shouldUseProxy,
-  isSmartPlayerActive,
   onPlayerEvent,
-  setFrequencyData,
   isPlaying,
   trackInfo,
   onPlay,
   onPause,
   onNext,
   onPrev,
-  smartPlaylist
 }: AudioEngineProps) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const bassFilterRef = useRef<BiquadFilterNode | null>(null);
-  const midFilterRef = useRef<BiquadFilterNode | null>(null);
-  const trebleFilterRef = useRef<BiquadFilterNode | null>(null);
-  const animationFrameRef = useRef<number>();
-  
   const lastTimeUpdateRef = useRef<number>(Date.now());
   const recoveryAttemptRef = useRef<number>(0);
   const watchdogIntervalRef = useRef<number | null>(null);
-
-  const isBypass = !!(station?.stationuuid?.startsWith('100fm-') || 
-                     station?.url_resolved?.includes('streamgates.net'));
-
-  const setupAudioContext = useCallback(() => {
-    if (!audioRef.current || audioContextRef.current || isBypass) return;
-    try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      const context = new AudioContextClass({});
-      audioContextRef.current = context;
-      
-      const source = context.createMediaElementSource(audioRef.current);
-      sourceRef.current = source;
-
-      const analyser = context.createAnalyser();
-      analyser.fftSize = 128;
-      analyserRef.current = analyser;
-
-      const bassFilter = context.createBiquadFilter();
-      bassFilter.type = 'lowshelf';
-      bassFilter.frequency.value = 250;
-      bassFilterRef.current = bassFilter;
-      
-      const midFilter = context.createBiquadFilter();
-      midFilter.type = 'peaking';
-      midFilter.frequency.value = 1000;
-      midFilter.Q.value = 1;
-      midFilterRef.current = midFilter;
-      
-      const trebleFilter = context.createBiquadFilter();
-      trebleFilter.type = 'highshelf';
-      trebleFilter.frequency.value = 4000;
-      trebleFilterRef.current = trebleFilter;
-
-      source
-        .connect(bassFilter)
-        .connect(midFilter)
-        .connect(trebleFilter)
-        .connect(analyser)
-        .connect(context.destination);
-    } catch (e) {
-      console.error("Failed to initialize AudioContext", e);
-    }
-  }, [isBypass]);
 
   const handlePlayError = useCallback((e: any, context: string) => {
     const errorName = e?.name || '';
@@ -115,7 +56,7 @@ export const useAudioEngine = ({
       console.error(`${context} play() failed:`, e);
       onPlayerEvent({ 
         type: 'STREAM_ERROR', 
-        payload: context === 'Recovery' ? 'שגיאה בהתאוששות' : "לא ניתן לנגן את התחנה." 
+        payload: "לא ניתן לנגן את התחנה." 
       });
     }
   }, [onPlayerEvent]);
@@ -132,37 +73,21 @@ export const useAudioEngine = ({
     lastTimeUpdateRef.current = Date.now();
 
     const audio = audioRef.current;
-    let streamUrl = station.url_resolved;
-    if (shouldUseProxy && !isBypass) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
+    const streamUrl = station.url_resolved;
           
     audio.src = '';
     audio.load();
-    audio.src = `${streamUrl}?retry=${Date.now()}`;
+    audio.src = `${streamUrl}${streamUrl.includes('?') ? '&' : '?' }retry=${Date.now()}`;
     audio.load();
     audio.play().catch(e => handlePlayError(e, 'Recovery'));
-  }, [station, onPlayerEvent, shouldUseProxy, isBypass, handlePlayError]);
+  }, [station, onPlayerEvent, handlePlayError]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !station) return;
 
     const playAudio = async () => {
-      if (shouldUseProxy && !isBypass) {
-        setupAudioContext();
-        if (audioContextRef.current?.state === 'suspended') {
-          await audioContextRef.current.resume();
-        }
-      }
-      
-      let streamUrl = station.url_resolved;
-      if (isSmartPlayerActive && streamUrl.includes('streamgates.net') && !streamUrl.includes('dvr_timeshift')) {
-        const lastSlashIndex = streamUrl.lastIndexOf('/');
-        if (lastSlashIndex !== -1) {
-          streamUrl = `${streamUrl.substring(0, lastSlashIndex)}/playlist_dvr_timeshift-36000.m3u8`;
-        }
-      }
-
-      if (shouldUseProxy && !isBypass) streamUrl = `${CORS_PROXY_URL}${streamUrl}`;
+      const streamUrl = station.url_resolved;
       const isHls = streamUrl.includes('.m3u8');
 
       if (hlsRef.current) {
@@ -188,8 +113,7 @@ export const useAudioEngine = ({
       } else {
         if (audio.src !== streamUrl) {
           audio.src = streamUrl;
-          if (shouldUseProxy && !isBypass) audio.crossOrigin = 'anonymous';
-          else audio.removeAttribute('crossOrigin');
+          audio.removeAttribute('crossOrigin');
         }
         audio.play().catch(e => handlePlayError(e, 'Standard'));
       }
@@ -204,35 +128,10 @@ export const useAudioEngine = ({
         hlsRef.current = null;
       }
     };
-  }, [status, station, setupAudioContext, onPlayerEvent, shouldUseProxy, isSmartPlayerActive, isBypass, handlePlayError]);
+  }, [status, station, onPlayerEvent, handlePlayError]);
 
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
   
-  useEffect(() => {
-    if (!bassFilterRef.current || !midFilterRef.current || !trebleFilterRef.current) return;
-    const settings = eqPreset === 'custom' ? customEqSettings : EQ_PRESETS[eqPreset as Exclude<EqPreset, 'custom'>];
-    if (settings) {
-      bassFilterRef.current.gain.value = settings.bass;
-      midFilterRef.current.gain.value = settings.mid;
-      trebleFilterRef.current.gain.value = settings.treble;
-    }
-  }, [eqPreset, customEqSettings]);
-
-  useEffect(() => {
-    const loop = () => {
-      if (analyserRef.current && isPlaying && shouldUseProxy) {
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-        analyserRef.current.getByteFrequencyData(dataArray);
-        setFrequencyData(dataArray);
-      } else if (!shouldUseProxy && isPlaying) {
-        setFrequencyData(new Uint8Array(64));
-      }
-      animationFrameRef.current = requestAnimationFrame(loop);
-    };
-    if (isPlaying) animationFrameRef.current = requestAnimationFrame(loop);
-    return () => { if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current); };
-  }, [isPlaying, setFrequencyData, shouldUseProxy]);
-
   useEffect(() => {
     if ('mediaSession' in navigator && station) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -267,7 +166,7 @@ export const useAudioEngine = ({
 
       watchdogIntervalRef.current = window.setInterval(() => {
         const timeSinceLastUpdate = Date.now() - lastTimeUpdateRef.current;
-        if (timeSinceLastUpdate > 10000) { // Increased to 10s for more stability
+        if (timeSinceLastUpdate > 10000) {
           console.warn(`Watchdog triggered: No audio progress for ${timeSinceLastUpdate}ms. Attempting recovery...`);
           attemptRecovery();
         }
