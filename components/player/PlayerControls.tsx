@@ -5,20 +5,20 @@ interface PlayerControlsProps {
   isActuallyPlaying: boolean;
   isLoading: boolean;
   onPlayPause: () => void;
-  onSmartPrev: () => void;
-  onSmartNext: () => void;
+  onPrev: () => void;
+  onNext: () => void;
 }
 
 const PlayerControls: React.FC<PlayerControlsProps> = ({
   isActuallyPlaying,
   isLoading,
   onPlayPause,
-  onSmartPrev,
-  onSmartNext
+  onPrev,
+  onNext
 }) => {
   return (
     <div className="flex items-center gap-1 sm:gap-2">
-       <button onClick={onSmartPrev} className="p-2 text-text-secondary hover:text-text-primary" aria-label="הקודם">
+       <button onClick={onPrev} className="p-2 text-text-secondary hover:text-text-primary" aria-label="הקודם">
           <SkipPreviousIcon className="w-6 h-6" />
       </button>
       <button 
@@ -28,7 +28,7 @@ const PlayerControls: React.FC<PlayerControlsProps> = ({
       >
         {isActuallyPlaying || isLoading ? <PauseIcon className="w-7 h-7" /> : <PlayIcon className="w-7 h-7" />}
       </button>
-      <button onClick={onSmartNext} className="p-2 text-text-secondary hover:text-text-primary" aria-label="הבא">
+      <button onClick={onNext} className="p-2 text-text-secondary hover:text-text-primary" aria-label="הבא">
           <SkipNextIcon className="w-6 h-6" />
       </button>
     </div>

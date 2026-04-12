@@ -95,16 +95,18 @@ export const useAudioEngine = ({
     audio.play().catch(e => handlePlayError(e, 'Recovery'));
   }, [station, onPlayerEvent, handlePlayError]);
 
-  const seekToSong = useCallback((timestamp: number) => {
-    const audio = audioRef.current;
-    if (!audio || !audio.seekable.length) return;
-    const now = Math.floor(Date.now() / 1000);
-    const secondsAgo = now - timestamp;
-    const livePosition = audio.seekable.end(0);
-    const targetPosition = Math.max(0, livePosition - secondsAgo);
-    if (isFinite(targetPosition)) {
-        console.log(`[AudioEngine] Seeking to ${targetPosition} (Song timestamp: ${timestamp})`);
-        audio.currentTime = targetPosition;
+  const seekToTimestamp = useCallback((songStartTimestamp: number) => {
+    try {
+      const audio = audioRef.current;
+      if (!audio) return;
+      const liveEdge = audio.seekable.length > 0 ? audio.seekable.end(audio.seekable.length - 1) : audio.currentTime;
+      const secondsAgo = (Date.now() / 1000) - songStartTimestamp;
+      const targetTime = liveEdge - secondsAgo;
+      if (Number.isFinite(targetTime) && targetTime >= 0) {
+        audio.currentTime = targetTime;
+      }
+    } catch (e) {
+      console.error("Seek failed:", e);
     }
   }, []);
 
@@ -285,5 +287,5 @@ export const useAudioEngine = ({
     return clearWatchdog;
   }, [status, attemptRecovery]);
 
-  return { audioRef, attemptRecovery, seekToSong };
+  return { audioRef, attemptRecovery, seekToTimestamp };
 };

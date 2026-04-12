@@ -12,6 +12,8 @@ interface PlayerProps {
   onPause: () => void;
   onNext: () => void;
   onPrev: () => void;
+  onNextSong: (playlist: SmartPlaylistItem[], seekFn: (ts: number) => void) => void;
+  onPrevSong: (playlist: SmartPlaylistItem[], seekFn: (ts: number) => void) => void;
   onPlayerEvent: (event: any) => void;
   eqPreset: EqPreset;
   customEqSettings: CustomEqSettings;
@@ -36,68 +38,47 @@ interface PlayerProps {
 }
 
 const Player: React.FC<PlayerProps> = (props) => {
-  const { playerState, onPlayPause, onPlay, onPause, onNext, onPrev, onPlayerEvent, eqPreset, customEqSettings, volume, trackInfo, showNextSong, onOpenNowPlaying, setFrequencyData, frequencyData, isVisualizerEnabled, shouldUseProxy, marqueeDelay, isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled, marqueeSpeed, onOpenActionMenu, is100fmSmartPlayerEnabled, bluetoothAction, smartPlaylist } = props;
+  const { playerState, onPlayPause, onPlay, onPause, onNext, onPrev, onNextSong, onPrevSong, onPlayerEvent, eqPreset, customEqSettings, volume, trackInfo, showNextSong, onOpenNowPlaying, setFrequencyData, frequencyData, isVisualizerEnabled, shouldUseProxy, marqueeDelay, isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled, marqueeSpeed, onOpenActionMenu, is100fmSmartPlayerEnabled, bluetoothAction, smartPlaylist } = props;
   const { status, station, error } = playerState;
   const isPlaying = status === 'PLAYING';
   const isLoading = status === 'LOADING';
-  const isSmartPlayerActive = is100fmSmartPlayerEnabled && (station?.stationuuid.startsWith('100fm-') || station?.url_resolved.includes('streamgates.net'));
+  const is100FM = station?.stationuuid.startsWith('100fm-') || station?.url_resolved.includes('streamgates.net');
+  const isSmartPlayerActive = is100fmSmartPlayerEnabled && is100FM;
 
-  const getCurrentUnixTime = () => Math.floor(Date.now() / 1000);
-
-  const handleSmartPrev = () => {
-    if (!isSmartPlayerActive || smartPlaylist.length === 0) { onPrev(); return; }
-    const now = getCurrentUnixTime();
-    const currentTrackIndex = [...smartPlaylist].reverse().findIndex(t => t.timestamp <= now + 5);
-    const originalIndex = currentTrackIndex >= 0 ? smartPlaylist.length - 1 - currentTrackIndex : -1;
-    if (originalIndex !== -1) {
-      const currentTrack = smartPlaylist[originalIndex];
-      if (now - currentTrack.timestamp > 10) seekToSong(currentTrack.timestamp);
-      else if (originalIndex > 0) seekToSong(smartPlaylist[originalIndex - 1].timestamp);
-      else seekToSong(currentTrack.timestamp);
-    } else onPrev();
-  };
-
-  const handleSmartNext = () => {
-    if (!isSmartPlayerActive || smartPlaylist.length === 0) { onNext(); return; }
-    const now = getCurrentUnixTime();
-    const currentTrackIndex = [...smartPlaylist].reverse().findIndex(t => t.timestamp <= now + 5);
-    const originalIndex = currentTrackIndex >= 0 ? smartPlaylist.length - 1 - currentTrackIndex : -1;
-    if (originalIndex !== -1 && originalIndex < smartPlaylist.length - 1) seekToSong(smartPlaylist[originalIndex + 1].timestamp);
-    else {
-      const audio = audioRef.current;
-      if (audio && audio.seekable.length) audio.currentTime = audio.seekable.end(0);
-      else onNext();
-    }
-  };
-
-  const { audioRef, attemptRecovery, seekToSong } = useAudioEngine({
-    status, station, volume, eqPreset, customEqSettings, shouldUseProxy: !!shouldUseProxy, isSmartPlayerActive: !!isSmartPlayerActive, onPlayerEvent, setFrequencyData, isPlaying, trackInfo, onPlay, onPause, onNext, onPrev, smartPlaylist, bluetoothAction, onSmartNext: handleSmartNext, onSmartPrev: handleSmartPrev
+  const { audioRef, attemptRecovery, seekToTimestamp } = useAudioEngine({
+    status, station, volume, eqPreset, customEqSettings, shouldUseProxy: !!shouldUseProxy, isSmartPlayerActive: !!isSmartPlayerActive, onPlayerEvent, setFrequencyData, isPlaying, trackInfo, onPlay, onPause, onNext, onPrev, smartPlaylist, bluetoothAction, onSmartNext: () => onNextSong(smartPlaylist, seekToTimestamp), onSmartPrev: () => onPrevSong(smartPlaylist, seekToTimestamp)
   });
 
   if (!station) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-30">
+      {is100fmSmartPlayerEnabled && is100FM && (
+        <div className="w-full flex items-center justify-center py-2 bg-bg-secondary/40 backdrop-blur-md animate-fade-in">
+          <button 
+            onClick={() => onPrevSong(smartPlaylist, seekToTimestamp)}
+            disabled={smartPlaylist.length === 0}
+            className={`bg-gradient-to-b from-gray-700 to-gray-900 text-white rounded-lg transition-all shadow-[0_4px_0_rgb(31,41,55)] active:shadow-none active:translate-y-[2px] px-8 py-1 mx-2 text-xs font-bold ${smartPlaylist.length === 0 ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+          >
+            שיר קודם
+          </button>
+          {smartPlaylist.length === 0 && (
+            <span className="text-[10px] text-text-secondary animate-pulse">טוען רשימת שירים...</span>
+          )}
+          <button 
+            onClick={() => onNextSong(smartPlaylist, seekToTimestamp)}
+            disabled={smartPlaylist.length === 0}
+            className={`bg-gradient-to-b from-gray-700 to-gray-900 text-white rounded-lg transition-all shadow-[0_4px_0_rgb(31,41,55)] active:shadow-none active:translate-y-[2px] px-8 py-1 mx-2 text-xs font-bold ${smartPlaylist.length === 0 ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+          >
+            שיר הבא
+          </button>
+        </div>
+      )}
       <div className="relative bg-bg-secondary/80 backdrop-blur-lg shadow-t-lg">
         {isVisualizerEnabled && isPlaying && <PlayerVisualizer frequencyData={frequencyData} />}
-        
-        {isSmartPlayerActive && smartPlaylist.length > 0 && (
-          <div className="w-full h-7 bg-accent/5 border-b border-accent/10 flex items-center justify-center gap-8 animate-fade-in">
-             <button onClick={handleSmartPrev} className="text-[11px] font-bold text-accent hover:text-accent-hover transition-colors flex items-center gap-1 px-2 py-1 rounded hover:bg-accent/10">
-               <span>«</span>
-               <span>שיר קודם</span>
-             </button>
-             <div className="text-[10px] text-text-secondary/60 font-medium hidden sm:block">נגן חכם פעיל</div>
-             <button onClick={handleSmartNext} className="text-[11px] font-bold text-accent hover:text-accent-hover transition-colors flex items-center gap-1 px-2 py-1 rounded hover:bg-accent/10">
-               <span>שיר הבא</span>
-               <span>»</span>
-             </button>
-          </div>
-        )}
-
         <div className="max-w-7xl mx-auto p-4 flex items-center justify-between gap-4">
           <PlayerInfo station={station} trackInfo={trackInfo} status={status} error={error} showNextSong={showNextSong} onOpenNowPlaying={onOpenNowPlaying} onOpenActionMenu={onOpenActionMenu} isMarqueeProgramEnabled={isMarqueeProgramEnabled} isMarqueeCurrentTrackEnabled={isMarqueeCurrentTrackEnabled} isMarqueeNextTrackEnabled={isMarqueeNextTrackEnabled} marqueeSpeed={marqueeSpeed} marqueeDelay={marqueeDelay} isSmartPlayerActive={!!isSmartPlayerActive} />
-          <PlayerControls isActuallyPlaying={isPlaying} isLoading={isLoading} onPlayPause={onPlayPause} onSmartPrev={handleSmartPrev} onSmartNext={handleSmartNext} />
+          <PlayerControls isActuallyPlaying={isPlaying} isLoading={isLoading} onPlayPause={onPlayPause} onPrev={onPrev} onNext={onNext} />
         </div>
         <audio ref={audioRef} onPlaying={() => onPlayerEvent({ type: 'STREAM_STARTED' })} onPause={() => onPlayerEvent({ type: 'STREAM_PAUSED' })} onTimeUpdate={() => {}} onStalled={() => attemptRecovery()} onWaiting={() => {}} onError={() => onPlayerEvent({ type: 'STREAM_ERROR', payload: "שגיאה בניגון התחנה."})} />
       </div>

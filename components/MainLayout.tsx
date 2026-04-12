@@ -50,6 +50,8 @@ interface MainLayoutProps {
   handlePause: () => void;
   handleNext: () => void;
   handlePrev: () => void;
+  handleNextSong: (playlist: SmartPlaylistItem[], seekFn: (ts: number) => void) => void;
+  handlePrevSong: (playlist: SmartPlaylistItem[], seekFn: (ts: number) => void) => void;
   handleVolumeChange: (v: number) => void;
   frequencyData: Uint8Array;
   setFrequencyData: (data: Uint8Array) => void;
@@ -94,7 +96,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
     allSettings, setAllSettings, isSettingsOpen, setIsSettingsOpen, handleToggleSettingsSection,
     handleManualUpdateCheck, updateStatus, isRebinding, setIsRebinding,
     stations, displayedStations, stationsStatus, error, handleSelectStation, isFavorite, toggleFavorite, handleReorder, handleAdminUpdate,
-    playerState, handlePlayerEvent, handlePlayPause, handlePlay, handlePause, handleNext, handlePrev, handleVolumeChange,
+    playerState, handlePlayerEvent, handlePlayPause, handlePlay, handlePause, handleNext, handlePrev, handleNextSong, handlePrevSong, handleVolumeChange,
     frequencyData, setFrequencyData, trackInfo, smartPlaylist,
     isNowPlayingOpen, setIsNowPlayingOpen, isVisualizerFullscreen, setIsVisualizerFullscreen,
     actionMenuState, closeActionMenu, openActionMenu,
@@ -229,6 +231,8 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         onPause={handlePause} 
         onNext={handleNext} 
         onPrev={handlePrev} 
+        onNextSong={handleNextSong}
+        onPrevSong={handlePrevSong}
         onPlayerEvent={handlePlayerEvent} 
         eqPreset={allSettings.eqPreset} 
         customEqSettings={allSettings.customEqSettings} 
