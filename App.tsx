@@ -49,12 +49,44 @@ export default function App() {
   useEffect(() => {
     const handleOrientation = async () => {
       try {
-        const orientation = screen.orientation as any;
-        if (!allSettings.isScreenRotationEnabled && orientation?.lock) await orientation.lock('portrait');
-        else if (allSettings.isScreenRotationEnabled && orientation?.unlock) orientation.unlock();
-      } catch (e) { console.warn('Orientation lock failed:', e); }
+        const screenObj = screen as any;
+        const orientation = (screenObj.orientation || screenObj.mozOrientation || screenObj.msOrientation) as any;
+        
+        if (!allSettings.isScreenRotationEnabled) {
+          if (orientation?.lock) {
+            await orientation.lock('portrait-primary');
+          } else if (screenObj.lockOrientation) {
+            screenObj.lockOrientation('portrait-primary');
+          }
+        } else {
+          if (orientation?.unlock) {
+            orientation.unlock();
+          } else if (screenObj.unlockOrientation) {
+            screenObj.unlockOrientation();
+          }
+        }
+      } catch (e) {
+        console.warn('Orientation lock failed:', e);
+      }
     };
+
     handleOrientation();
+
+    // Re-apply lock on orientation change if disabled
+    const onOrientationChange = () => {
+      if (!allSettings.isScreenRotationEnabled) {
+        handleOrientation();
+      }
+    };
+
+    const orientation = screen.orientation as any;
+    if (orientation?.addEventListener) {
+      orientation.addEventListener('change', onOrientationChange);
+      return () => orientation.removeEventListener('change', onOrientationChange);
+    } else {
+      window.addEventListener('orientationchange', onOrientationChange);
+      return () => window.removeEventListener('orientationchange', onOrientationChange);
+    }
   }, [allSettings.isScreenRotationEnabled]);
 
   // 4. Touch Handlers (Pinch Zoom)
