@@ -1,5 +1,5 @@
 import React from 'react';
-import { Station, StationFilter, SortOrder, User, AllSettings, StationTrackInfo, SmartPlaylistItem, SettingsSections, GridSize } from '../types';
+import { Station, StationFilter, SortOrder, User, AllSettings, StationTrackInfo, SettingsSections, GridSize } from '../types';
 import Player from './Player';
 import StationList from './StationList';
 import SettingsPanel from './SettingsPanel';
@@ -50,13 +50,10 @@ interface MainLayoutProps {
   handlePause: () => void;
   handleNext: () => void;
   handlePrev: () => void;
-  handleNextSong: (playlist: SmartPlaylistItem[], seekFn: (ts: number) => void) => void;
-  handlePrevSong: (playlist: SmartPlaylistItem[], seekFn: (ts: number) => void) => void;
   handleVolumeChange: (v: number) => void;
   frequencyData: Uint8Array;
   setFrequencyData: (data: Uint8Array) => void;
   trackInfo: StationTrackInfo | null;
-  smartPlaylist: SmartPlaylistItem[];
   
   // UI State
   isNowPlayingOpen: boolean;
@@ -96,8 +93,8 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
     allSettings, setAllSettings, isSettingsOpen, setIsSettingsOpen, handleToggleSettingsSection,
     handleManualUpdateCheck, updateStatus, isRebinding, setIsRebinding,
     stations, displayedStations, stationsStatus, error, handleSelectStation, isFavorite, toggleFavorite, handleReorder, handleAdminUpdate,
-    playerState, handlePlayerEvent, handlePlayPause, handlePlay, handlePause, handleNext, handlePrev, handleNextSong, handlePrevSong, handleVolumeChange,
-    frequencyData, setFrequencyData, trackInfo, smartPlaylist,
+    playerState, handlePlayerEvent, handlePlayPause, handlePlay, handlePause, handleNext, handlePrev, handleVolumeChange,
+    frequencyData, setFrequencyData, trackInfo,
     isNowPlayingOpen, setIsNowPlayingOpen, isVisualizerFullscreen, setIsVisualizerFullscreen,
     actionMenuState, closeActionMenu, openActionMenu,
     mergeModal, pendingRemoval, confirmRemoval, cancelRemoval,
@@ -190,10 +187,6 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         keyMap={allSettings.keyMap} 
         onKeyMapChange={(v) => setAllSettings(s=>({...s, keyMap: v}))} 
         setIsRebinding={setIsRebinding} 
-        is100fmSmartPlayerEnabled={allSettings.is100fmSmartPlayerEnabled} 
-        on100fmSmartPlayerEnabledChange={(v) => setAllSettings(s=>({...s, is100fmSmartPlayerEnabled: v}))} 
-        bluetoothAction={allSettings.bluetoothAction}
-        onBluetoothActionChange={(v) => setAllSettings(s=>({...s, bluetoothAction: v}))}
         openSections={allSettings.settingsSections} 
         onToggleSection={handleToggleSettingsSection} 
       />
@@ -231,8 +224,6 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         onPause={handlePause} 
         onNext={handleNext} 
         onPrev={handlePrev} 
-        onNextSong={handleNextSong}
-        onPrevSong={handlePrevSong}
         onPlayerEvent={handlePlayerEvent} 
         eqPreset={allSettings.eqPreset} 
         customEqSettings={allSettings.customEqSettings} 
@@ -251,9 +242,6 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         isMarqueeNextTrackEnabled={allSettings.isMarqueeNextTrackEnabled} 
         marqueeSpeed={allSettings.marqueeSpeed} 
         onOpenActionMenu={openActionMenu} 
-        is100fmSmartPlayerEnabled={allSettings.is100fmSmartPlayerEnabled} 
-        bluetoothAction={allSettings.bluetoothAction}
-        smartPlaylist={smartPlaylist} 
       />
     </div>
   );

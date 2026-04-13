@@ -16,7 +16,6 @@ interface PlayerInfoProps {
   isMarqueeNextTrackEnabled: boolean;
   marqueeSpeed: number;
   marqueeDelay: number;
-  isSmartPlayerActive: boolean;
 }
 
 const PlayerInfo: React.FC<PlayerInfoProps> = ({
@@ -31,8 +30,7 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({
   isMarqueeCurrentTrackEnabled,
   isMarqueeNextTrackEnabled,
   marqueeSpeed,
-  marqueeDelay,
-  isSmartPlayerActive
+  marqueeDelay
 }) => {
   const [startAnimation, setStartAnimation] = useState(false);
   const stationNameRef = useRef<HTMLSpanElement>(null);
@@ -105,8 +103,6 @@ const PlayerInfo: React.FC<PlayerInfoProps> = ({
             </MarqueeText>
           ) : status === 'LOADING' ? (
               <span className="text-text-secondary animate-pulse">טוען...</span>
-          ) : isSmartPlayerActive ? (
-              <span className="text-accent text-xs font-semibold animate-pulse">נגן חכם 100FM פעיל</span>
           ) : null}
         </div>
          {status !== 'ERROR' && showNextSong && trackInfo?.next && (

@@ -123,8 +123,6 @@ export type AllSettings = {
     sortOrderAll: SortOrder;
     sortOrderFavorites: SortOrder;
     keyMap: KeyMap;
-    is100fmSmartPlayerEnabled: boolean;
-    bluetoothAction: 'station' | 'track';
     isScreenRotationEnabled: boolean;
     settingsSections: SettingsSections;
 };

@@ -42,47 +42,6 @@ export const usePlayer = (displayedStations: Station[]) => {
     dispatch(event);
   }, []);
 
-  const handleNextSong = useCallback((smartPlaylist: SmartPlaylistItem[], seekToTimestamp: (ts: number) => void) => {
-    try {
-      console.log('Button clicked! Triggering song change (Next)...');
-      const now = Math.floor(Date.now() / 1000);
-      const currentTrackIndex = [...smartPlaylist].reverse().findIndex(t => t.timestamp <= now + 2);
-      const originalIndex = currentTrackIndex >= 0 ? smartPlaylist.length - 1 - currentTrackIndex : -1;
-      
-      console.log('Current Track Index:', originalIndex, 'Playlist Length:', smartPlaylist.length);
-
-      if (originalIndex !== -1 && originalIndex < smartPlaylist.length - 1) {
-        seekToTimestamp(smartPlaylist[originalIndex + 1].timestamp);
-      }
-    } catch (e) {
-      console.error("handleNextSong failed:", e);
-    }
-  }, []);
-
-  const handlePrevSong = useCallback((smartPlaylist: SmartPlaylistItem[], seekToTimestamp: (ts: number) => void) => {
-    try {
-      console.log('Button clicked! Triggering song change (Prev)...');
-      const now = Math.floor(Date.now() / 1000);
-      const currentTrackIndex = [...smartPlaylist].reverse().findIndex(t => t.timestamp <= now + 2);
-      const originalIndex = currentTrackIndex >= 0 ? smartPlaylist.length - 1 - currentTrackIndex : -1;
-      
-      console.log('Current Track Index:', originalIndex);
-
-      if (originalIndex !== -1) {
-        const currentTrack = smartPlaylist[originalIndex];
-        if (now - currentTrack.timestamp > 5) {
-          seekToTimestamp(currentTrack.timestamp);
-        } else if (originalIndex > 0) {
-          seekToTimestamp(smartPlaylist[originalIndex - 1].timestamp);
-        } else {
-          seekToTimestamp(currentTrack.timestamp);
-        }
-      }
-    } catch (e) {
-      console.error("handlePrevSong failed:", e);
-    }
-  }, []);
-
   return {
     playerState,
     dispatch,
@@ -94,8 +53,6 @@ export const usePlayer = (displayedStations: Station[]) => {
     handlePlayPause,
     handleNext,
     handlePrev,
-    handlePlayerEvent,
-    handleNextSong,
-    handlePrevSong
+    handlePlayerEvent
   };
 };

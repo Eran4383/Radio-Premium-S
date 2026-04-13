@@ -21,9 +21,9 @@ export default function App() {
   
   const { displayedStations, currentSortOrder, setSortOrder, handleReorder } = useStationsLogic(stations, allSettings, setAllSettings, isFavorite);
   
-  const { playerState, frequencyData, setFrequencyData, preMuteVolume, setPreMuteVolume, handleSelectStation, handlePlayPause, handleNext, handlePrev, handlePlayerEvent, handleNextSong, handlePrevSong } = usePlayer(displayedStations);
+  const { playerState, frequencyData, setFrequencyData, preMuteVolume, setPreMuteVolume, handleSelectStation, handlePlayPause, handleNext, handlePrev, handlePlayerEvent } = usePlayer(displayedStations);
   
-  const { trackInfo, smartPlaylist } = useTrackInfo(playerState.station, allSettings.is100fmSmartPlayerEnabled);
+  const { trackInfo } = useTrackInfo(playerState.station);
   
   const [isRebinding, setIsRebinding] = useState(false);
   useKeyboardShortcuts({ allSettings, isRebinding, handlePlayPause, handleNext, handlePrev, setAllSettings, preMuteVolume, setPreMuteVolume });
@@ -74,8 +74,7 @@ export default function App() {
       handleManualUpdateCheck={handleManualUpdateCheck} updateStatus={updateStatus} isRebinding={isRebinding} setIsRebinding={setIsRebinding}
       stations={stations} displayedStations={displayedStations} stationsStatus={stationsStatus} error={error} handleSelectStation={handleSelectStation} isFavorite={isFavorite} toggleFavorite={toggleFavorite} handleReorder={handleReorder} handleAdminUpdate={handleAdminUpdate}
       playerState={playerState} handlePlayerEvent={handlePlayerEvent} handlePlayPause={handlePlayPause} handlePlay={handlePlayPause} handlePause={handlePlayPause} handleNext={handleNext} handlePrev={handlePrev} handleVolumeChange={(v) => setAllSettings(s => ({...s, volume: v}))}
-      handleNextSong={handleNextSong} handlePrevSong={handlePrevSong}
-      frequencyData={frequencyData} setFrequencyData={setFrequencyData as (data: Uint8Array) => void} trackInfo={trackInfo} smartPlaylist={smartPlaylist}
+      frequencyData={frequencyData} setFrequencyData={setFrequencyData as (data: Uint8Array) => void} trackInfo={trackInfo}
       isNowPlayingOpen={isNowPlayingOpen} setIsNowPlayingOpen={setIsNowPlayingOpen} isVisualizerFullscreen={isVisualizerFullscreen} setIsVisualizerFullscreen={setIsVisualizerFullscreen}
       actionMenuState={actionMenuState} closeActionMenu={closeActionMenu} openActionMenu={openActionMenu}
       mergeModal={mergeModal} pendingRemoval={pendingRemoval} confirmRemoval={confirmRemoval} cancelRemoval={cancelRemoval}
