@@ -231,12 +231,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <ToggleSwitch label="הצג חיווי מצב" enabled={isStatusIndicatorEnabled} onChange={onStatusIndicatorEnabledChange} />
                     <ToggleSwitch label="הצג בקרת עוצמה" enabled={isVolumeControlVisible} onChange={onVolumeControlVisibleChange} />
                     <ToggleSwitch label="הצג שיר הבא" enabled={showNextSong} onChange={onShowNextSongChange} />
-                    <div className="flex flex-col gap-1">
-                        <ToggleSwitch label="אפשר סיבוב מסך" enabled={isScreenRotationEnabled} onChange={onScreenRotationEnabledChange} />
-                        <p className="text-[10px] text-text-secondary px-3 opacity-70 leading-tight">
-                            * באפליקציה מותקנת, הנעילה נקבעת על פי הגדרות המערכת.
-                        </p>
-                    </div>
+                    <ToggleSwitch label="אפשר סיבוב מסך" enabled={isScreenRotationEnabled} onChange={onScreenRotationEnabledChange} />
                 </div>
             </SettingsSection>
             <SettingsSection title="קיצורי מקלדת" isOpen={openSections.shortcuts} onToggle={() => onToggleSection('shortcuts')}>
