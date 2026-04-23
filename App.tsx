@@ -46,52 +46,9 @@ export default function App() {
     }
   }, [isAuthReady, stationsStatus]);
 
-  const applyOrientationLock = useCallback(async (enabled: boolean) => {
-    try {
-      const screenObj = screen as any;
-      const orientation = (screenObj.orientation || screenObj.mozOrientation || screenObj.msOrientation) as any;
-      
-      if (!enabled) {
-        if (orientation?.lock) {
-          await orientation.lock('portrait-primary');
-        } else if (screenObj.lockOrientation) {
-          screenObj.lockOrientation('portrait-primary');
-        }
-      } else {
-        if (orientation?.unlock) {
-          orientation.unlock();
-        } else if (screenObj.unlockOrientation) {
-          screenObj.unlockOrientation();
-        }
-      }
-    } catch (e) {
-      console.warn('Orientation control failed:', e);
-    }
-  }, []);
-
-  const handleScreenRotationChange = useCallback(async (enabled: boolean) => {
+  const handleScreenRotationChange = useCallback((enabled: boolean) => {
     setAllSettings(s => ({ ...s, isScreenRotationEnabled: enabled }));
-    await applyOrientationLock(enabled);
-  }, [setAllSettings, applyOrientationLock]);
-
-  // Apply lock on first interaction if disabled, to satisfy browser "User Activation" requirement
-  useEffect(() => {
-    if (allSettings.isScreenRotationEnabled) return;
-
-    const handleFirstInteraction = () => {
-      applyOrientationLock(false);
-      window.removeEventListener('click', handleFirstInteraction);
-      window.removeEventListener('touchstart', handleFirstInteraction);
-    };
-
-    window.addEventListener('click', handleFirstInteraction);
-    window.addEventListener('touchstart', handleFirstInteraction);
-    
-    return () => {
-      window.removeEventListener('click', handleFirstInteraction);
-      window.removeEventListener('touchstart', handleFirstInteraction);
-    };
-  }, [allSettings.isScreenRotationEnabled, applyOrientationLock]);
+  }, [setAllSettings]);
 
   // 4. Touch Handlers (Pinch Zoom)
   const pinchDistRef = useRef(0);
