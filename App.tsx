@@ -46,9 +46,7 @@ export default function App() {
     }
   }, [isAuthReady, stationsStatus]);
 
-  const handleScreenRotationChange = useCallback(async (enabled: boolean) => {
-    setAllSettings(s => ({ ...s, isScreenRotationEnabled: enabled }));
-    
+  const applyOrientationLock = useCallback(async (enabled: boolean) => {
     try {
       const screenObj = screen as any;
       const orientation = (screenObj.orientation || screenObj.mozOrientation || screenObj.msOrientation) as any;
@@ -67,9 +65,33 @@ export default function App() {
         }
       }
     } catch (e) {
-      console.warn('Manual orientation lock failed:', e);
+      console.warn('Orientation control failed:', e);
     }
-  }, [setAllSettings]);
+  }, []);
+
+  const handleScreenRotationChange = useCallback(async (enabled: boolean) => {
+    setAllSettings(s => ({ ...s, isScreenRotationEnabled: enabled }));
+    await applyOrientationLock(enabled);
+  }, [setAllSettings, applyOrientationLock]);
+
+  // Apply lock on first interaction if disabled, to satisfy browser "User Activation" requirement
+  useEffect(() => {
+    if (allSettings.isScreenRotationEnabled) return;
+
+    const handleFirstInteraction = () => {
+      applyOrientationLock(false);
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+
+    window.addEventListener('click', handleFirstInteraction);
+    window.addEventListener('touchstart', handleFirstInteraction);
+    
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, [allSettings.isScreenRotationEnabled, applyOrientationLock]);
 
   // 4. Touch Handlers (Pinch Zoom)
   const pinchDistRef = useRef(0);
