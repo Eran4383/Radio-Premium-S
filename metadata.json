@@ -1,5 +1,6 @@
 {
-  "name": "רדיו פרימיום - שכפול לניסויים",
-  "description": "מבצע חלוקת הקבצים הגדולים לקבצים קטנים",
-  "requestFramePermissions": []
+  "name": "רדיו פרימיום - שכפול לניסויים - מושלם",
+  "description": "מבצע חלוקת הקבצים הגדולים לקבצים קטנים.\nגרסת S שעובדת אחרי חלוקת הקבצים.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }
