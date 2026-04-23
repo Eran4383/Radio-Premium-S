@@ -30,6 +30,7 @@ interface MainLayoutProps {
   updateStatus: any;
   isRebinding: boolean;
   setIsRebinding: (rebinding: boolean) => void;
+  onScreenRotationEnabledChange: (enabled: boolean) => void;
   
   // Stations
   stations: Station[];
@@ -92,6 +93,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
     user, isAdmin, onLogin, onLogout, isAdminPanelOpen, setIsAdminPanelOpen,
     allSettings, setAllSettings, isSettingsOpen, setIsSettingsOpen, handleToggleSettingsSection,
     handleManualUpdateCheck, updateStatus, isRebinding, setIsRebinding,
+    onScreenRotationEnabledChange,
     stations, displayedStations, stationsStatus, error, handleSelectStation, isFavorite, toggleFavorite, handleReorder, handleAdminUpdate,
     playerState, handlePlayerEvent, handlePlayPause, handlePlay, handlePause, handleNext, handlePrev, handleVolumeChange,
     frequencyData, setFrequencyData, trackInfo,
@@ -167,7 +169,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         showNextSong={allSettings.showNextSong} 
         onShowNextSongChange={(v) => setAllSettings(s=>({...s, showNextSong: v}))} 
         isScreenRotationEnabled={allSettings.isScreenRotationEnabled}
-        onScreenRotationEnabledChange={(v) => setAllSettings(s=>({...s, isScreenRotationEnabled: v}))}
+        onScreenRotationEnabledChange={onScreenRotationEnabledChange}
         customEqSettings={allSettings.customEqSettings} 
         onCustomEqChange={(v) => setAllSettings(s=>({...s, customEqSettings: v}))} 
         gridSize={allSettings.gridSize} 
