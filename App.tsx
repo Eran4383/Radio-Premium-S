@@ -46,60 +46,6 @@ export default function App() {
     }
   }, [isAuthReady, stationsStatus]);
 
-  const applyOrientationLock = useCallback(async (enabled: boolean) => {
-    try {
-      const screenObj = screen as any;
-      const orientation = (screenObj.orientation || screenObj.mozOrientation || screenObj.msOrientation) as any;
-      
-      if (!enabled) {
-        if (orientation?.lock) {
-          await orientation.lock('portrait-primary');
-        } else if (screenObj.lockOrientation) {
-          screenObj.lockOrientation('portrait-primary');
-        }
-      } else {
-        if (orientation?.unlock) {
-          orientation.unlock();
-        } else if (orientation?.lock) {
-          // Some browsers need 'any' to truly unlock in standalone
-          await orientation.lock('any');
-        } else if (screenObj.unlockOrientation) {
-          screenObj.unlockOrientation();
-        }
-      }
-    } catch (e) {
-      // Common to fail if not in full-screen or not triggered by user interaction
-      if (import.meta.env.DEV) {
-        console.log('Orientation control feedback:', e);
-      }
-    }
-  }, []);
-
-  const handleScreenRotationChange = useCallback(async (enabled: boolean) => {
-    setAllSettings(s => ({ ...s, isScreenRotationEnabled: enabled }));
-    await applyOrientationLock(enabled);
-  }, [setAllSettings, applyOrientationLock]);
-
-  // Handle initial lock for PWA standalone mode
-  useEffect(() => {
-    if (allSettings.isScreenRotationEnabled) return;
-
-    const tryLock = () => {
-      applyOrientationLock(false);
-      window.removeEventListener('click', tryLock);
-      window.removeEventListener('touchstart', tryLock);
-    };
-
-    // Lock on first click/touch to satisfy user-activation requirement
-    window.addEventListener('click', tryLock);
-    window.addEventListener('touchstart', tryLock);
-    
-    return () => {
-      window.removeEventListener('click', tryLock);
-      window.removeEventListener('touchstart', tryLock);
-    };
-  }, [allSettings.isScreenRotationEnabled, applyOrientationLock]);
-
   // 4. Touch Handlers (Pinch Zoom)
   const pinchDistRef = useRef(0);
   const handleTouchStart = useCallback((e: React.TouchEvent) => { if (e.touches.length === 2) { e.preventDefault(); const dx = e.touches[0].clientX - e.touches[1].clientX; const dy = e.touches[0].clientY - e.touches[1].clientY; pinchDistRef.current = Math.sqrt(dx * dx + dy * dy); } }, []);
@@ -115,7 +61,6 @@ export default function App() {
       user={user} isAdmin={isAdmin} onLogin={handleLogin} onLogout={handleLogout} isAdminPanelOpen={isAdminPanelOpen} setIsAdminPanelOpen={setIsAdminPanelOpen}
       allSettings={allSettings} setAllSettings={setAllSettings} isSettingsOpen={isSettingsOpen} setIsSettingsOpen={setIsSettingsOpen} handleToggleSettingsSection={handleToggleSettingsSection}
       handleManualUpdateCheck={handleManualUpdateCheck} updateStatus={updateStatus} isRebinding={isRebinding} setIsRebinding={setIsRebinding}
-      onScreenRotationEnabledChange={handleScreenRotationChange}
       stations={stations} displayedStations={displayedStations} stationsStatus={stationsStatus} error={error} handleSelectStation={handleSelectStation} isFavorite={isFavorite} toggleFavorite={toggleFavorite} handleReorder={handleReorder} handleAdminUpdate={handleAdminUpdate}
       playerState={playerState} handlePlayerEvent={handlePlayerEvent} handlePlayPause={handlePlayPause} handlePlay={handlePlayPause} handlePause={handlePlayPause} handleNext={handleNext} handlePrev={handlePrev} handleVolumeChange={(v) => setAllSettings(s => ({...s, volume: v}))}
       frequencyData={frequencyData} setFrequencyData={setFrequencyData as (data: Uint8Array) => void} trackInfo={trackInfo}

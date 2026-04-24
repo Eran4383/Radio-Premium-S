@@ -148,6 +148,5 @@ export type AllSettings = {
     sortOrderAll: SortOrder;
     sortOrderFavorites: SortOrder;
     keyMap: KeyMap;
-    isScreenRotationEnabled: boolean;
     settingsSections: SettingsSections;
 };

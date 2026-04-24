@@ -43,7 +43,6 @@ export const saveSettingsToLocalStorage = (settings: AllSettings) => {
     saveToLocal('radio-sort-order-all', settings.sortOrderAll);
     saveToLocal('radio-sort-order-favorites', settings.sortOrderFavorites);
     saveToLocal('radio-key-map', settings.keyMap);
-    saveToLocal('radio-screen-rotation-enabled', settings.isScreenRotationEnabled);
     saveToLocal('radio-settings-sections', settings.settingsSections);
 };
 
@@ -70,7 +69,6 @@ export const loadSettingsFromLocalStorage = (): AllSettings => {
   const sortOrderAll = getFromLocal<SortOrder>('radio-sort-order-all', defaultSettings.sortOrderAll);
   const sortOrderFavorites = getFromLocal<SortOrder>('radio-sort-order-favorites', defaultSettings.sortOrderFavorites);
   const keyMap = getFromLocal<KeyMap>('radio-key-map', defaultSettings.keyMap);
-  const isScreenRotationEnabled = getFromLocal<boolean>('radio-screen-rotation-enabled', defaultSettings.isScreenRotationEnabled);
   const settingsSections = getFromLocal<SettingsSections>('radio-settings-sections', defaultSettings.settingsSections);
 
   return {
@@ -79,6 +77,6 @@ export const loadSettingsFromLocalStorage = (): AllSettings => {
     isStatusIndicatorEnabled, isVolumeControlVisible, showNextSong, gridSize,
     isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled,
     marqueeSpeed, marqueeDelay, filter, sortOrderAll, sortOrderFavorites,
-    keyMap, isScreenRotationEnabled, settingsSections
+    keyMap, settingsSections
   };
 };

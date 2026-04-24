@@ -25,7 +25,6 @@ export const defaultSettings: AllSettings = {
         eqMovie: ['4'],
         eqCustom: ['5']
     },
-    isScreenRotationEnabled: false,
     settingsSections: {
         theme: true,
         eq: true,
