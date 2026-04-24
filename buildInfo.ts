@@ -1,5 +1,5 @@
 
 export const BUILD_INFO = {
-    version: '1.5',
-    buildDate: '23.04.2026'
+    version: '1.6',
+    buildDate: '24.04.2026'
 };

@@ -60,13 +60,18 @@ export default function App() {
       } else {
         if (orientation?.unlock) {
           orientation.unlock();
+        } else if (orientation?.lock) {
+          // Some browsers need 'any' to truly unlock in standalone
+          await orientation.lock('any');
         } else if (screenObj.unlockOrientation) {
           screenObj.unlockOrientation();
         }
       }
     } catch (e) {
       // Common to fail if not in full-screen or not triggered by user interaction
-      console.log('Orientation control feedback:', e);
+      if (import.meta.env.DEV) {
+        console.log('Orientation control feedback:', e);
+      }
     }
   }, []);
 
