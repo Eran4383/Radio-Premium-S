@@ -1,4 +1,4 @@
-import { AllSettings, StationFilter, SortOrder, VisualizerStyle, GridSize, KeyMap, SettingsSections, EqPreset, CustomEqSettings, DimLevel, DimWakeMode } from '../types/settings';
+import { AllSettings, StationFilter, SortOrder, VisualizerStyle, GridSize, KeyMap, SettingsSections, EqPreset, CustomEqSettings, DimLevel, DimWakeMode, DeviceMode } from '../types/settings';
 import { defaultSettings } from '../store/initialSettings';
 import { Theme } from '../config/themes';
 
@@ -37,8 +37,10 @@ export const saveSettingsToLocalStorage = (settings: AllSettings) => {
     saveToLocal('radio-pixel-shift-enabled', settings.isPixelShiftEnabled);
     saveToLocal('radio-auto-dim-seconds', settings.autoDimSeconds);
     saveToLocal('radio-dim-level', settings.dimLevel);
+    saveToLocal('radio-dim-opacity', settings.dimOpacity);
     saveToLocal('radio-dim-wake-mode', settings.dimWakeMode);
     saveToLocal('radio-emergency-timeout-minutes', settings.emergencyTimeoutMinutes);
+    saveToLocal('radio-device-mode', settings.deviceMode);
     saveToLocal('radio-grid-size', settings.gridSize);
     saveToLocal('radio-marquee-program-enabled', settings.isMarqueeProgramEnabled);
     saveToLocal('radio-marquee-current-enabled', settings.isMarqueeCurrentTrackEnabled);
@@ -69,8 +71,10 @@ export const loadSettingsFromLocalStorage = (): AllSettings => {
   const isPixelShiftEnabled = getFromLocal<boolean>('radio-pixel-shift-enabled', defaultSettings.isPixelShiftEnabled);
   const autoDimSeconds = getFromLocal<number>('radio-auto-dim-seconds', defaultSettings.autoDimSeconds);
   const dimLevel = getFromLocal<DimLevel>('radio-dim-level', defaultSettings.dimLevel);
+  const dimOpacity = getFromLocal<number>('radio-dim-opacity', defaultSettings.dimOpacity);
   const dimWakeMode = getFromLocal<DimWakeMode>('radio-dim-wake-mode', defaultSettings.dimWakeMode);
   const emergencyTimeoutMinutes = getFromLocal<number>('radio-emergency-timeout-minutes', defaultSettings.emergencyTimeoutMinutes);
+  const deviceMode = getFromLocal<DeviceMode>('radio-device-mode', defaultSettings.deviceMode);
   const gridSize = getFromLocal<GridSize>('radio-grid-size', defaultSettings.gridSize);
   const isMarqueeProgramEnabled = getFromLocal<boolean>('radio-marquee-program-enabled', defaultSettings.isMarqueeProgramEnabled);
   const isMarqueeCurrentTrackEnabled = getFromLocal<boolean>('radio-marquee-current-enabled', defaultSettings.isMarqueeCurrentTrackEnabled);
@@ -87,8 +91,8 @@ export const loadSettingsFromLocalStorage = (): AllSettings => {
     favorites, customOrder, theme, eqPreset, customEqSettings, volume,
     isNowPlayingVisualizerEnabled, isPlayerBarVisualizerEnabled, visualizerStyle,
     isStatusIndicatorEnabled, isVolumeControlVisible, showNextSong, isWakeLockEnabled,
-    isPixelShiftEnabled, autoDimSeconds, dimLevel, dimWakeMode, emergencyTimeoutMinutes,
-    gridSize,
+    isPixelShiftEnabled, autoDimSeconds, dimLevel, dimOpacity, dimWakeMode, emergencyTimeoutMinutes,
+    deviceMode, gridSize,
     isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled,
     marqueeSpeed, marqueeDelay, filter, sortOrderAll, sortOrderFavorites,
     keyMap, settingsSections

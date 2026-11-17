@@ -11,7 +11,13 @@ interface ScreenProtectionSettingsProps {
   autoDimSeconds: number;
   onAutoDimSecondsChange: (seconds: number) => void;
   dimLevel: DimLevel;
-  onDimLevelChange: (level: DimLevel) => void;
+  dimOpacity: number;
+  onDimPresetSelect: (level: DimLevel, opacity: number) => void;
+  onDimOpacityChange: (opacity: number) => void;
+  isPreviewingDim: boolean;
+  onTogglePreviewDim: () => void;
+  onSliderPreviewStart: () => void;
+  onSliderPreviewEnd: () => void;
   dimWakeMode: DimWakeMode;
   onDimWakeModeChange: (mode: DimWakeMode) => void;
   emergencyTimeoutMinutes: number;
@@ -33,32 +39,37 @@ const EMERGENCY_PRESETS = [
   { label: "30 דק'", value: 30 },
 ];
 
-const DIM_LEVEL_OPTIONS: { value: DimLevel; label: string; badgeText: string; badgeClass: string }[] = [
-  {
-    value: 'light',
-    label: 'קל (30%)',
-    badgeText: 'הגנה חלקית: קריאות גבוהה, אך עלול לא להספיק למניעת צריבת מסך בשימוש ממושך.',
-    badgeClass: 'bg-amber-500/15 border-amber-500/40 text-amber-200',
-  },
-  {
-    value: 'balanced',
-    label: 'מאוזן (מומלץ)',
-    badgeText: 'מומלץ: איזון מיטבי בין שמירה על תקינות המסך לבין קריאות ותפעול נוח ברכב.',
-    badgeClass: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200',
-  },
-  {
-    value: 'deep',
-    label: 'עמוק (75%)',
-    badgeText: 'הגנה מרבית: חוסך סוללה ומונע סנוור, מומלץ לנסיעות ארוכות ובלילה (הממשק נשאר גלוי).',
-    badgeClass: 'bg-sky-500/15 border-sky-500/40 text-sky-200',
-  },
-  {
-    value: 'warm',
-    label: 'לילה חם',
-    badgeText: 'מומלץ לחושך: מוסיף סינון אור כחול והחשכה מאוזנת להקלה על העיניים ושמירה על המסך.',
-    badgeClass: 'bg-indigo-500/15 border-indigo-500/40 text-indigo-200',
-  },
+const DIM_PRESET_BUTTONS: { value: Exclude<DimLevel, 'custom'>; opacity: number; label: string }[] = [
+  { value: 'light', opacity: 30, label: 'קל (30%)' },
+  { value: 'balanced', opacity: 55, label: 'מאוזן (מומלץ)' },
+  { value: 'deep', opacity: 75, label: 'עמוק (75%)' },
+  { value: 'warm', opacity: 65, label: 'לילה חם' },
 ];
+
+const getDimRecommendation = (dimLevel: DimLevel, dimOpacity: number): { text: string; className: string } => {
+  if (dimOpacity < 40) {
+    return {
+      text: `הגנה חלקית (${dimOpacity}%): קריאות גבוהה, אך עלול לא להספיק למניעת צריבת מסך בשימוש ממושך.`,
+      className: 'bg-amber-500/15 border-amber-500/40 text-amber-200',
+    };
+  }
+  if (dimLevel === 'warm') {
+    return {
+      text: `מומלץ לחושך (${dimOpacity}%): סינון אור כחול והחשכה מאוזנת להקלה על העיניים ושמירה על המסך.`,
+      className: 'bg-indigo-500/15 border-indigo-500/40 text-indigo-200',
+    };
+  }
+  if (dimOpacity <= 65) {
+    return {
+      text: `מומלץ (${dimOpacity}%): איזון מיטבי בין שמירה על תקינות המסך לבין קריאות ותפעול נוח ברכב.`,
+      className: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200',
+    };
+  }
+  return {
+    text: `הגנה מרבית (${dimOpacity}%): חוסך סוללה ומונע סנוור בנסיעות ארוכות ובלילה (הממשק נשאר גלוי).`,
+    className: 'bg-sky-500/15 border-sky-500/40 text-sky-200',
+  };
+};
 
 const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
   isWakeLockEnabled,
@@ -68,7 +79,13 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
   autoDimSeconds,
   onAutoDimSecondsChange,
   dimLevel,
-  onDimLevelChange,
+  dimOpacity,
+  onDimPresetSelect,
+  onDimOpacityChange,
+  isPreviewingDim,
+  onTogglePreviewDim,
+  onSliderPreviewStart,
+  onSliderPreviewEnd,
   dimWakeMode,
   onDimWakeModeChange,
   emergencyTimeoutMinutes,
@@ -120,7 +137,7 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
     onEmergencyTimeoutMinutesChange(clamped);
   };
 
-  const activeDimOption = DIM_LEVEL_OPTIONS.find(opt => opt.value === dimLevel) || DIM_LEVEL_OPTIONS[1];
+  const recommendation = getDimRecommendation(dimLevel, dimOpacity);
 
   return (
     <div className="space-y-3">
@@ -137,7 +154,7 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
           onChange={onPixelShiftEnabledChange}
         />
         <p className="text-[11px] text-text-secondary px-3 leading-snug">
-          הזזה זעירה ובלתי מורגשת מדי דקה (בזמן ניגון והמתנה) לשמירה על תקינות המסך.
+          הזזה זעירה ובלתי מורגשת מדי 4 דקות (בזמן ניגון והמתנה) לשמירה על תקינות המסך.
         </p>
       </div>
 
@@ -195,23 +212,69 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
         )}
       </div>
 
-      {/* Dim Level & Wake Behavior (only when auto-dim is enabled) */}
+      {/* Dim Level, Manual Slider & Live Preview (when auto-dim is enabled) */}
       {autoDimSeconds > 0 && (
         <>
-          <div className="p-3 rounded-lg bg-bg-primary space-y-2">
-            <span className="block text-sm font-medium text-text-primary">סוג ועוצמת העמעום</span>
+          <div className="p-3 rounded-lg bg-bg-primary space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-text-primary">סוג ועוצמת העמעום</span>
+              <button
+                type="button"
+                onClick={onTogglePreviewDim}
+                aria-pressed={isPreviewingDim}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded border transition-colors ${
+                  isPreviewingDim
+                    ? 'bg-accent text-white border-accent'
+                    : 'bg-accent/20 hover:bg-accent/35 text-accent border-accent/40'
+                }`}
+              >
+                {isPreviewingDim ? '✕ סגור תצוגה' : '👁️ תצוגה מקדימה'}
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-1.5">
-              {DIM_LEVEL_OPTIONS.map(option => (
+              {DIM_PRESET_BUTTONS.map(option => (
                 <SettingsButton
                   key={option.value}
                   label={option.label}
-                  isActive={dimLevel === option.value}
-                  onClick={() => onDimLevelChange(option.value)}
+                  isActive={dimLevel === option.value && dimOpacity === option.opacity}
+                  onClick={() => onDimPresetSelect(option.value, option.opacity)}
                 />
               ))}
             </div>
-            <div className={`p-2 rounded border text-[11px] leading-snug ${activeDimOption.badgeClass}`}>
-              {activeDimOption.badgeText}
+
+            {/* Compact Manual Opacity Slider (1% precision + live preview while adjusting) */}
+            <div className="pt-1 space-y-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-text-secondary">כיוון ידני</span>
+                <span className="font-semibold text-accent">{dimOpacity}%</span>
+              </div>
+              <input
+                type="range"
+                min={15}
+                max={80}
+                step={1}
+                value={dimOpacity}
+                onPointerDown={onSliderPreviewStart}
+                onPointerUp={onSliderPreviewEnd}
+                onPointerCancel={onSliderPreviewEnd}
+                onTouchStart={onSliderPreviewStart}
+                onTouchEnd={onSliderPreviewEnd}
+                onKeyDown={(e) => {
+                  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
+                    onSliderPreviewStart();
+                  }
+                }}
+                onKeyUp={onSliderPreviewEnd}
+                onBlur={onSliderPreviewEnd}
+                onChange={(e) => onDimOpacityChange(parseInt(e.target.value, 10))}
+                className="w-full accent-teal-500 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                aria-label="עוצמת עמעום ידנית"
+              />
+            </div>
+
+            <div className={`p-2 rounded border text-[11px] leading-snug ${recommendation.className}`}>
+              {recommendation.text}
             </div>
           </div>
 

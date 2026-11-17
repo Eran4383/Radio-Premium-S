@@ -32,12 +32,21 @@ export const useScreenProtection = ({
   isPlayingOrLoading,
 }: UseScreenProtectionProps) => {
   const [isDimmed, setIsDimmed] = useState(false);
+  const [isPreviewingDim, setIsPreviewingDim] = useState(false);
+  const [isSliderPreviewing, setIsSliderPreviewing] = useState(false);
   const [isEmergencyIdle, setIsEmergencyIdle] = useState(false);
 
   const isDimmedRef = useRef(isDimmed);
   isDimmedRef.current = isDimmed;
 
+  const isPreviewingRef = useRef(isPreviewingDim);
+  isPreviewingRef.current = isPreviewingDim;
+
+  const isSliderPreviewingRef = useRef(isSliderPreviewing);
+  isSliderPreviewingRef.current = isSliderPreviewing;
+
   const dimTimerRef = useRef<number | null>(null);
+  const sliderPreviewEndTimerRef = useRef<number | null>(null);
   const emergencyTimerRef = useRef<number | null>(null);
   const shiftIndexRef = useRef(0);
 
@@ -62,7 +71,7 @@ export const useScreenProtection = ({
       rootStyle.setProperty('--pixel-shift-y', `${offset.y}px`);
     };
 
-    const intervalId = window.setInterval(applyNextShift, 60_000);
+    const intervalId = window.setInterval(applyNextShift, 240_000);
 
     return () => {
       window.clearInterval(intervalId);
@@ -97,12 +106,60 @@ export const useScreenProtection = ({
     }
   }, [isPlayingOrLoading, emergencyTimeoutMinutes]);
 
+  const stopDimPreview = useCallback(() => {
+    if (sliderPreviewEndTimerRef.current !== null) {
+      window.clearTimeout(sliderPreviewEndTimerRef.current);
+      sliderPreviewEndTimerRef.current = null;
+    }
+    setIsPreviewingDim(false);
+    setIsSliderPreviewing(false);
+    scheduleDimTimer();
+  }, [scheduleDimTimer]);
+
+  const toggleDimPreview = useCallback(() => {
+    if (sliderPreviewEndTimerRef.current !== null) {
+      window.clearTimeout(sliderPreviewEndTimerRef.current);
+      sliderPreviewEndTimerRef.current = null;
+    }
+    setIsSliderPreviewing(false);
+    setIsPreviewingDim(prev => !prev);
+    scheduleDimTimer();
+  }, [scheduleDimTimer]);
+
+  const startSliderPreview = useCallback(() => {
+    if (sliderPreviewEndTimerRef.current !== null) {
+      window.clearTimeout(sliderPreviewEndTimerRef.current);
+      sliderPreviewEndTimerRef.current = null;
+    }
+    setIsSliderPreviewing(true);
+    scheduleDimTimer();
+  }, [scheduleDimTimer]);
+
+  const endSliderPreview = useCallback(() => {
+    if (sliderPreviewEndTimerRef.current !== null) {
+      window.clearTimeout(sliderPreviewEndTimerRef.current);
+    }
+    sliderPreviewEndTimerRef.current = window.setTimeout(() => {
+      sliderPreviewEndTimerRef.current = null;
+      setIsSliderPreviewing(false);
+      scheduleDimTimer();
+    }, 900);
+  }, [scheduleDimTimer]);
+
   const wakeFromDim = useCallback(() => {
     setIsDimmed(false);
     setIsEmergencyIdle(false);
     scheduleDimTimer();
     scheduleEmergencyTimer();
   }, [scheduleDimTimer, scheduleEmergencyTimer]);
+
+  useEffect(() => {
+    return () => {
+      if (sliderPreviewEndTimerRef.current !== null) {
+        window.clearTimeout(sliderPreviewEndTimerRef.current);
+      }
+    };
+  }, []);
 
   // Reset emergency state immediately when playback starts/resumes
   useEffect(() => {
@@ -123,6 +180,8 @@ export const useScreenProtection = ({
   useEffect(() => {
     if (autoDimSeconds <= 0) {
       setIsDimmed(false);
+      setIsPreviewingDim(false);
+      setIsSliderPreviewing(false);
     }
     scheduleDimTimer();
 
@@ -137,6 +196,13 @@ export const useScreenProtection = ({
   // Global user activity listeners
   useEffect(() => {
     const handlePointerOrTouchActivity = () => {
+      // While previewing, allow adjusting settings/slider freely while resetting timers
+      if (isPreviewingRef.current || isSliderPreviewingRef.current) {
+        setIsEmergencyIdle(false);
+        scheduleDimTimer();
+        scheduleEmergencyTimer();
+        return;
+      }
       // In doubleTap mode while dimmed, DimOverlay's onClick handles waking so first tap doesn't pass through
       if (isDimmedRef.current && dimWakeMode === 'doubleTap') {
         return;
@@ -149,7 +215,17 @@ export const useScreenProtection = ({
       scheduleEmergencyTimer();
     };
 
-    const handleKeyActivity = () => {
+    const handleKeyActivity = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isPreviewingRef.current) {
+        stopDimPreview();
+        return;
+      }
+      if (isPreviewingRef.current || isSliderPreviewingRef.current) {
+        setIsEmergencyIdle(false);
+        scheduleDimTimer();
+        scheduleEmergencyTimer();
+        return;
+      }
       if (isDimmedRef.current) {
         setIsDimmed(false);
       }
@@ -167,10 +243,16 @@ export const useScreenProtection = ({
       window.removeEventListener('wheel', handlePointerOrTouchActivity, { capture: true });
       window.removeEventListener('keydown', handleKeyActivity, { capture: true });
     };
-  }, [dimWakeMode, scheduleDimTimer, scheduleEmergencyTimer]);
+  }, [dimWakeMode, scheduleDimTimer, scheduleEmergencyTimer, stopDimPreview]);
 
   return {
     isDimmed,
+    isPreviewingDim,
+    isSliderPreviewing,
     wakeFromDim,
+    toggleDimPreview,
+    stopDimPreview,
+    startSliderPreview,
+    endSliderPreview,
   };
 };

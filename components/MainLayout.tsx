@@ -1,5 +1,5 @@
 import React from 'react';
-import { Station, StationFilter, SortOrder, User, AllSettings, StationTrackInfo, SettingsSections, GridSize } from '../types';
+import { Station, StationFilter, SortOrder, User, AllSettings, StationTrackInfo, SettingsSections, GridSize, DetectedDeviceType } from '../types';
 import Player from './Player';
 import StationList from './StationList';
 import SettingsPanel from './SettingsPanel';
@@ -83,9 +83,17 @@ interface MainLayoutProps {
   handleTouchMove: (e: React.TouchEvent) => void;
   handleTouchEnd: () => void;
 
-  // Screen Protection
+  // Screen Protection & Device Detection
   isDimmed: boolean;
+  isPreviewingDim: boolean;
+  isSliderPreviewing: boolean;
   wakeFromDim: () => void;
+  toggleDimPreview: () => void;
+  stopDimPreview: () => void;
+  startSliderPreview: () => void;
+  endSliderPreview: () => void;
+  detectedDevice: DetectedDeviceType;
+  effectiveDevice: DetectedDeviceType;
 }
 
 const SortButton: React.FC<{ label: string; order: SortOrder; currentOrder: SortOrder; setOrder: (order: SortOrder) => void }> = ({ label, order, currentOrder, setOrder }) => (
@@ -105,16 +113,21 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
     mergeModal, pendingRemoval, confirmRemoval, cancelRemoval,
     currentSortOrder, setSortOrder, handleCategorySortClick, categoryButtonLabel, currentCategoryIndex,
     handleTouchStart, handleTouchMove, handleTouchEnd,
-    isDimmed, wakeFromDim
+    isDimmed, isPreviewingDim, isSliderPreviewing, wakeFromDim, toggleDimPreview, stopDimPreview, startSliderPreview, endSliderPreview,
+    detectedDevice, effectiveDevice
   } = props;
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col overflow-x-clip">
       <DimOverlay
         isDimmed={isDimmed}
+        isPreviewing={isPreviewingDim}
+        isSliderPreviewing={isSliderPreviewing}
         dimLevel={allSettings.dimLevel}
+        dimOpacity={allSettings.dimOpacity}
         dimWakeMode={allSettings.dimWakeMode}
         onWake={wakeFromDim}
+        onStopPreview={stopDimPreview}
       />
       <MergeDataModal {...mergeModal} />
       <ConfirmRemoveModal 
@@ -132,7 +145,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         favorites={allSettings.favorites}
       />
       
-      <header className="p-4 bg-bg-secondary/50 backdrop-blur-sm sticky top-0 z-20 shadow-md">
+      <header className={`${effectiveDevice === 'mobile' ? 'p-3' : 'p-4'} bg-bg-secondary/50 backdrop-blur-sm sticky top-0 z-20 shadow-md`}>
         <div className="pixel-shift-target">
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
               <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-text-secondary hover:text-text-primary" aria-label="הגדרות"><MenuIcon className="w-6 h-6" /></button>
@@ -156,7 +169,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         </div>
       </header>
       <main className="flex-grow pb-48 pixel-shift-target" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-        {stationsStatus === 'loading' ? ( <StationListSkeleton /> ) : stationsStatus === 'error' ? ( <p className="text-center text-red-400 p-4">{error}</p> ) : displayedStations.length > 0 ? ( <StationList stations={displayedStations} currentStation={playerState.station} onSelectStation={handleSelectStation} isFavorite={isFavorite} toggleFavorite={toggleFavorite} onReorder={handleReorder} isStreamActive={playerState.status === 'PLAYING'} isStatusIndicatorEnabled={allSettings.isStatusIndicatorEnabled} gridSize={allSettings.gridSize} sortOrder={currentSortOrder} /> ) : ( <div className="text-center p-8 text-text-secondary"> <h2 className="text-xl font-semibold">{allSettings.filter === StationFilter.Favorites ? 'אין תחנות במועדפים' : 'לא נמצאו תחנות'}</h2> <p>{allSettings.filter === StationFilter.Favorites ? 'אפשר להוסיף תחנות על ידי לחיצה על כפור הכוכב.' : 'נסה לרענן את העמוד.'}</p> </div> )}
+        {stationsStatus === 'loading' ? ( <StationListSkeleton /> ) : stationsStatus === 'error' ? ( <p className="text-center text-red-400 p-4">{error}</p> ) : displayedStations.length > 0 ? ( <StationList stations={displayedStations} currentStation={playerState.station} onSelectStation={handleSelectStation} isFavorite={isFavorite} toggleFavorite={toggleFavorite} onReorder={handleReorder} isStreamActive={playerState.status === 'PLAYING'} isStatusIndicatorEnabled={allSettings.isStatusIndicatorEnabled} gridSize={allSettings.gridSize} sortOrder={currentSortOrder} deviceType={effectiveDevice} /> ) : ( <div className="text-center p-8 text-text-secondary"> <h2 className="text-xl font-semibold">{allSettings.filter === StationFilter.Favorites ? 'אין תחנות במועדפים' : 'לא נמצאו תחנות'}</h2> <p>{allSettings.filter === StationFilter.Favorites ? 'אפשר להוסיף תחנות על ידי לחיצה על כפור הכוכב.' : 'נסה לרענן את העמוד.'}</p> </div> )}
       </main>
       <SettingsPanel 
         isOpen={isSettingsOpen} 
@@ -187,13 +200,24 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         autoDimSeconds={allSettings.autoDimSeconds}
         onAutoDimSecondsChange={(v) => setAllSettings(s=>({...s, autoDimSeconds: v}))}
         dimLevel={allSettings.dimLevel}
-        onDimLevelChange={(v) => setAllSettings(s=>({...s, dimLevel: v}))}
+        dimOpacity={allSettings.dimOpacity}
+        onDimPresetSelect={(level, opacity) => setAllSettings(s => ({ ...s, dimLevel: level, dimOpacity: opacity }))}
+        onDimOpacityChange={(opacity) => setAllSettings(s => ({ ...s, dimOpacity: opacity, dimLevel: s.dimLevel === 'warm' ? 'warm' : 'custom' }))}
+        isPreviewingDim={isPreviewingDim}
+        onTogglePreviewDim={toggleDimPreview}
+        onStopPreviewDim={stopDimPreview}
+        onSliderPreviewStart={startSliderPreview}
+        onSliderPreviewEnd={endSliderPreview}
         dimWakeMode={allSettings.dimWakeMode}
         onDimWakeModeChange={(v) => setAllSettings(s=>({...s, dimWakeMode: v}))}
         emergencyTimeoutMinutes={allSettings.emergencyTimeoutMinutes}
         onEmergencyTimeoutMinutesChange={(v) => setAllSettings(s=>({...s, emergencyTimeoutMinutes: v}))}
         customEqSettings={allSettings.customEqSettings} 
         onCustomEqChange={(v) => setAllSettings(s=>({...s, customEqSettings: v}))} 
+        deviceMode={allSettings.deviceMode}
+        onDeviceModeChange={(v) => setAllSettings(s => ({ ...s, deviceMode: v }))}
+        detectedDevice={detectedDevice}
+        effectiveDevice={effectiveDevice}
         gridSize={allSettings.gridSize} 
         onGridSizeChange={(v) => setAllSettings(s=>({...s, gridSize: v}))} 
         isMarqueeProgramEnabled={allSettings.isMarqueeProgramEnabled} 
@@ -266,6 +290,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         isMarqueeNextTrackEnabled={allSettings.isMarqueeNextTrackEnabled} 
         marqueeSpeed={allSettings.marqueeSpeed} 
         onOpenActionMenu={openActionMenu} 
+        deviceType={effectiveDevice}
       />
     </div>
   );

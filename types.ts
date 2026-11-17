@@ -118,10 +118,27 @@ export const KEY_ACTION_LABELS: Record<KeyAction, string> = {
     eqCustom: 'EQ: מותאם (5)',
 };
 
-export const DIM_LEVELS = ['light', 'balanced', 'deep', 'warm'] as const;
+export const DIM_LEVELS = ['light', 'balanced', 'deep', 'warm', 'custom'] as const;
 export type DimLevel = typeof DIM_LEVELS[number];
 
 export type DimWakeMode = 'singleTap' | 'doubleTap';
+
+export const DEVICE_MODES = ['auto', 'mobile', 'tablet', 'desktop'] as const;
+export type DeviceMode = typeof DEVICE_MODES[number];
+export type DetectedDeviceType = 'mobile' | 'tablet' | 'desktop';
+
+export const DEVICE_MODE_LABELS: Record<DeviceMode, string> = {
+    auto: 'אוטומטי',
+    mobile: 'טלפון',
+    tablet: 'טאבלט',
+    desktop: 'מחשב',
+};
+
+export const DETECTED_DEVICE_LABELS: Record<DetectedDeviceType, string> = {
+    mobile: 'טלפון',
+    tablet: 'טאבלט',
+    desktop: 'מחשב',
+};
 
 export interface SettingsSections {
     theme: boolean;
@@ -148,8 +165,10 @@ export type AllSettings = {
     isPixelShiftEnabled: boolean;
     autoDimSeconds: number;
     dimLevel: DimLevel;
+    dimOpacity: number;
     dimWakeMode: DimWakeMode;
     emergencyTimeoutMinutes: number;
+    deviceMode: DeviceMode;
     gridSize: GridSize;
     isMarqueeProgramEnabled: boolean;
     isMarqueeCurrentTrackEnabled: boolean;

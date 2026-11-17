@@ -8,7 +8,7 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 import { auth, db } from './firebaseConfig';
-import { AllSettings, DIM_LEVELS } from '../types/settings';
+import { AllSettings, DIM_LEVELS, DEVICE_MODES } from '../types/settings';
 import { defaultSettings } from '../store/initialSettings';
 import { Station } from '../types/station';
 
@@ -145,8 +145,10 @@ export const normalizeSettings = (raw: any): AllSettings => {
     isPixelShiftEnabled: typeof raw.isPixelShiftEnabled === 'boolean' ? raw.isPixelShiftEnabled : defaultSettings.isPixelShiftEnabled,
     autoDimSeconds: typeof raw.autoDimSeconds === 'number' && raw.autoDimSeconds >= 0 ? raw.autoDimSeconds : defaultSettings.autoDimSeconds,
     dimLevel: DIM_LEVELS.includes(raw.dimLevel) ? raw.dimLevel : defaultSettings.dimLevel,
+    dimOpacity: typeof raw.dimOpacity === 'number' && raw.dimOpacity >= 15 && raw.dimOpacity <= 80 ? Math.round(raw.dimOpacity) : defaultSettings.dimOpacity,
     dimWakeMode: raw.dimWakeMode === 'singleTap' || raw.dimWakeMode === 'doubleTap' ? raw.dimWakeMode : defaultSettings.dimWakeMode,
     emergencyTimeoutMinutes: typeof raw.emergencyTimeoutMinutes === 'number' && raw.emergencyTimeoutMinutes >= 0 ? raw.emergencyTimeoutMinutes : defaultSettings.emergencyTimeoutMinutes,
+    deviceMode: DEVICE_MODES.includes(raw.deviceMode) ? raw.deviceMode : defaultSettings.deviceMode,
     settingsSections: { ...defaultSettings.settingsSections, ...raw.settingsSections },
     keyMap: { ...defaultSettings.keyMap, ...raw.keyMap },
   };

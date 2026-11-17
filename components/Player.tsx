@@ -1,5 +1,5 @@
 import React from 'react';
-import { Station, EqPreset, CustomEqSettings, StationTrackInfo, SmartPlaylistItem } from '../types';
+import { Station, EqPreset, CustomEqSettings, StationTrackInfo, DetectedDeviceType } from '../types';
 import PlayerVisualizer from './player/PlayerVisualizer';
 import PlayerInfo from './player/PlayerInfo';
 import PlayerControls from './player/PlayerControls';
@@ -30,10 +30,11 @@ interface PlayerProps {
   isMarqueeNextTrackEnabled: boolean;
   marqueeSpeed: number;
   onOpenActionMenu: (songTitle: string) => void;
+  deviceType: DetectedDeviceType;
 }
 
 const Player: React.FC<PlayerProps> = (props) => {
-  const { playerState, onPlayPause, onPlay, onPause, onNext, onPrev, onPlayerEvent, eqPreset, customEqSettings, volume, trackInfo, showNextSong, onOpenNowPlaying, setFrequencyData, frequencyData, isVisualizerEnabled, shouldUseProxy, marqueeDelay, isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled, marqueeSpeed, onOpenActionMenu } = props;
+  const { playerState, onPlayPause, onPlay, onPause, onNext, onPrev, onPlayerEvent, eqPreset, customEqSettings, volume, trackInfo, showNextSong, onOpenNowPlaying, setFrequencyData, frequencyData, isVisualizerEnabled, shouldUseProxy, marqueeDelay, isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled, marqueeSpeed, onOpenActionMenu, deviceType } = props;
   const { status, station, error } = playerState;
   const isPlaying = status === 'PLAYING';
   const isLoading = status === 'LOADING';
@@ -48,7 +49,7 @@ const Player: React.FC<PlayerProps> = (props) => {
     <div className="fixed bottom-0 left-0 right-0 z-30">
       <div className="relative bg-bg-secondary/80 backdrop-blur-lg shadow-t-lg">
         {isVisualizerEnabled && isPlaying && <PlayerVisualizer frequencyData={frequencyData} />}
-        <div className="max-w-7xl mx-auto p-4 flex items-center justify-between gap-4 pixel-shift-target">
+        <div className={`max-w-7xl mx-auto flex items-center justify-between pixel-shift-target ${deviceType === 'mobile' ? 'p-3 gap-2.5' : 'px-6 py-4 gap-4'}`}>
           <PlayerInfo station={station} trackInfo={trackInfo} status={status} error={error} showNextSong={showNextSong} onOpenNowPlaying={onOpenNowPlaying} onOpenActionMenu={onOpenActionMenu} isMarqueeProgramEnabled={isMarqueeProgramEnabled} isMarqueeCurrentTrackEnabled={isMarqueeCurrentTrackEnabled} isMarqueeNextTrackEnabled={isMarqueeNextTrackEnabled} marqueeSpeed={marqueeSpeed} marqueeDelay={marqueeDelay} />
           <PlayerControls isActuallyPlaying={isPlaying} isLoading={isLoading} onPlayPause={onPlayPause} onPrev={onPrev} onNext={onNext} />
         </div>

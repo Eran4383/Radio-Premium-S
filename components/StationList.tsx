@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Station, GridSize, SortOrder } from '../types';
+import { Station, GridSize, SortOrder, DetectedDeviceType } from '../types';
 import { getCategory, CategoryType } from '../services/categoryService';
 import StationCard from './StationCard';
 
@@ -14,16 +14,38 @@ interface StationListProps {
   isStreamActive: boolean;
   isStatusIndicatorEnabled: boolean;
   gridSize: GridSize;
+  deviceType: DetectedDeviceType;
 }
 
-const getGridClasses = (size: GridSize) => {
+const getGridClasses = (size: GridSize, deviceType: DetectedDeviceType) => {
+  if (deviceType === 'mobile') {
+    switch (size) {
+      case 1: return 'grid-cols-4 sm:grid-cols-5';
+      case 2: return 'grid-cols-3 sm:grid-cols-4';
+      case 3: return 'grid-cols-2 sm:grid-cols-3';
+      case 4: return 'grid-cols-2';
+      case 5: return 'grid-cols-1';
+      default: return 'grid-cols-2 sm:grid-cols-3';
+    }
+  }
+  if (deviceType === 'tablet') {
+    switch (size) {
+      case 1: return 'grid-cols-5 md:grid-cols-6';
+      case 2: return 'grid-cols-4 md:grid-cols-5';
+      case 3: return 'grid-cols-3 md:grid-cols-4';
+      case 4: return 'grid-cols-2 md:grid-cols-3';
+      case 5: return 'grid-cols-2';
+      default: return 'grid-cols-3 md:grid-cols-4';
+    }
+  }
+  // desktop
   switch (size) {
-    case 1: return 'grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8';
-    case 2: return 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7';
-    case 3: return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6';
-    case 4: return 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5';
-    case 5: return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
-    default: return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6';
+    case 1: return 'grid-cols-5 md:grid-cols-7 xl:grid-cols-8';
+    case 2: return 'grid-cols-4 md:grid-cols-6 xl:grid-cols-7';
+    case 3: return 'grid-cols-3 md:grid-cols-5 xl:grid-cols-6';
+    case 4: return 'grid-cols-2 md:grid-cols-4 xl:grid-cols-5';
+    case 5: return 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4';
+    default: return 'grid-cols-3 md:grid-cols-5 xl:grid-cols-6';
   }
 };
 
@@ -40,7 +62,7 @@ const getCardContentClasses = (size: GridSize) => {
 
 const StationList: React.FC<StationListProps> = ({ 
     stations, sortOrder, currentStation, onSelectStation, isFavorite, toggleFavorite, onReorder,
-    isStreamActive, isStatusIndicatorEnabled, gridSize
+    isStreamActive, isStatusIndicatorEnabled, gridSize, deviceType
 }) => {
   const [draggedUuid, setDraggedUuid] = useState<string | null>(null);
   const [previewList, setPreviewList] = useState<Station[] | null>(null);
@@ -78,7 +100,9 @@ const StationList: React.FC<StationListProps> = ({
   
   const handleDragEnd = () => { if (!isDraggable) return; setDraggedUuid(null); setPreviewList(null); };
   const cardContentClasses = getCardContentClasses(gridSize);
-  const gridClasses = getGridClasses(gridSize);
+  const gridClasses = getGridClasses(gridSize, deviceType);
+  const gridGapClass = deviceType === 'mobile' ? 'gap-3' : 'gap-4';
+  const containerPaddingClass = deviceType === 'desktop' ? 'px-6 py-5 max-w-7xl mx-auto' : deviceType === 'tablet' ? 'p-5' : 'p-3';
 
   const renderCard = (station: Station) => (
     <StationCard key={station.stationuuid} station={station} isDraggable={isDraggable} isCurrentlyPlaying={currentStation?.stationuuid === station.stationuuid} isStreamActive={isStreamActive} isStatusIndicatorEnabled={isStatusIndicatorEnabled} cardContentClasses={cardContentClasses} isFavorite={isFavorite(station.stationuuid)} toggleFavorite={toggleFavorite} onSelectStation={onSelectStation} onDragStart={handleDragStart} onDragOver={handleDragOver} draggedUuid={draggedUuid} />
@@ -102,11 +126,11 @@ const StationList: React.FC<StationListProps> = ({
           if (currentStations.length > 0) groups.push({ categoryTitle: currentCategory, stations: currentStations });
       }
       return (
-          <div className="p-4 space-y-8">
+          <div className={`${containerPaddingClass} space-y-8`}>
               {groups.map((group, index) => (
                   <div key={`${group.categoryTitle}-${index}`}>
                       <h2 className="text-xl font-bold text-accent mb-4 px-2">{group.categoryTitle}</h2>
-                      <div className={`grid ${gridClasses} gap-4`}>{group.stations.map(renderCard)}</div>
+                      <div className={`grid ${gridClasses} ${gridGapClass}`}>{group.stations.map(renderCard)}</div>
                   </div>
               ))}
           </div>
@@ -115,7 +139,7 @@ const StationList: React.FC<StationListProps> = ({
 
   const listToRender = previewList || stations;
   return (
-    <div className={`grid ${gridClasses} gap-4 p-4`} onDragOver={(e) => isDraggable && e.preventDefault()} onDrop={handleDrop} onDragEnd={handleDragEnd}>
+    <div className={`grid ${gridClasses} ${gridGapClass} ${containerPaddingClass}`} onDragOver={(e) => isDraggable && e.preventDefault()} onDrop={handleDrop} onDragEnd={handleDragEnd}>
       {listToRender.map(renderCard)}
     </div>
   );

@@ -8,6 +8,7 @@ import { useTrackInfo } from './hooks/useTrackInfo';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStationsLogic } from './hooks/useStationsLogic';
 import { useScreenProtection } from './hooks/useScreenProtection';
+import { useDeviceType } from './hooks/useDeviceType';
 import MainLayout from './components/MainLayout';
 import { GridSize, CATEGORY_SORTS } from './types/settings';
 
@@ -28,7 +29,17 @@ export default function App() {
   
   const [isRebinding, setIsRebinding] = useState(false);
   useKeyboardShortcuts({ allSettings, isRebinding, handlePlayPause, handleNext, handlePrev, setAllSettings, preMuteVolume, setPreMuteVolume });
-  const { isDimmed, wakeFromDim } = useScreenProtection({
+  const { detectedDevice, effectiveDevice } = useDeviceType(allSettings.deviceMode);
+  const {
+    isDimmed,
+    isPreviewingDim,
+    isSliderPreviewing,
+    wakeFromDim,
+    toggleDimPreview,
+    stopDimPreview,
+    startSliderPreview,
+    endSliderPreview,
+  } = useScreenProtection({
     isWakeLockEnabled: allSettings.isWakeLockEnabled,
     isPixelShiftEnabled: allSettings.isPixelShiftEnabled,
     autoDimSeconds: allSettings.autoDimSeconds,
@@ -78,7 +89,8 @@ export default function App() {
       mergeModal={mergeModal} pendingRemoval={pendingRemoval} confirmRemoval={confirmRemoval} cancelRemoval={cancelRemoval}
       currentSortOrder={currentSortOrder} setSortOrder={setSortOrder} handleCategorySortClick={handleCategorySortClick} categoryButtonLabel={categoryButtonLabel} currentCategoryIndex={currentCategoryIndex}
       handleTouchStart={handleTouchStart} handleTouchMove={handleTouchMove} handleTouchEnd={handleTouchEnd}
-      isDimmed={isDimmed} wakeFromDim={wakeFromDim}
+      isDimmed={isDimmed} isPreviewingDim={isPreviewingDim} isSliderPreviewing={isSliderPreviewing} wakeFromDim={wakeFromDim} toggleDimPreview={toggleDimPreview} stopDimPreview={stopDimPreview} startSliderPreview={startSliderPreview} endSliderPreview={endSliderPreview}
+      detectedDevice={detectedDevice} effectiveDevice={effectiveDevice}
     />
   );
 }

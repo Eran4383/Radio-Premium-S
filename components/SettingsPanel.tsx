@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Theme, EqPreset, THEMES, EQ_PRESET_KEYS, EQ_PRESET_LABELS, CustomEqSettings, GridSize, User, KeyMap, KeyAction, KEY_ACTION_LABELS, SettingsSections, DimLevel, DimWakeMode } from '../types';
+import { Theme, EqPreset, THEMES, EQ_PRESET_KEYS, EQ_PRESET_LABELS, CustomEqSettings, GridSize, User, KeyMap, KeyAction, KEY_ACTION_LABELS, SettingsSections, DimLevel, DimWakeMode, DEVICE_MODES, DeviceMode, DetectedDeviceType, DEVICE_MODE_LABELS, DETECTED_DEVICE_LABELS } from '../types';
 import Auth from './Auth';
 import { BUILD_INFO } from '../buildInfo';
 import SettingsButton from './settings/SettingsButton';
@@ -40,13 +40,24 @@ interface SettingsPanelProps {
   autoDimSeconds: number;
   onAutoDimSecondsChange: (seconds: number) => void;
   dimLevel: DimLevel;
-  onDimLevelChange: (level: DimLevel) => void;
+  dimOpacity: number;
+  onDimPresetSelect: (level: DimLevel, opacity: number) => void;
+  onDimOpacityChange: (opacity: number) => void;
+  isPreviewingDim: boolean;
+  onTogglePreviewDim: () => void;
+  onStopPreviewDim: () => void;
+  onSliderPreviewStart: () => void;
+  onSliderPreviewEnd: () => void;
   dimWakeMode: DimWakeMode;
   onDimWakeModeChange: (mode: DimWakeMode) => void;
   emergencyTimeoutMinutes: number;
   onEmergencyTimeoutMinutesChange: (minutes: number) => void;
   customEqSettings: CustomEqSettings;
   onCustomEqChange: (settings: CustomEqSettings) => void;
+  deviceMode: DeviceMode;
+  onDeviceModeChange: (mode: DeviceMode) => void;
+  detectedDevice: DetectedDeviceType;
+  effectiveDevice: DetectedDeviceType;
   gridSize: GridSize;
   onGridSizeChange: (size: GridSize) => void;
   isMarqueeProgramEnabled: boolean;
@@ -123,10 +134,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     isWakeLockEnabled, onWakeLockEnabledChange,
     isPixelShiftEnabled, onPixelShiftEnabledChange,
     autoDimSeconds, onAutoDimSecondsChange,
-    dimLevel, onDimLevelChange,
+    dimLevel, dimOpacity, onDimPresetSelect, onDimOpacityChange, isPreviewingDim, onTogglePreviewDim, onStopPreviewDim, onSliderPreviewStart, onSliderPreviewEnd,
     dimWakeMode, onDimWakeModeChange,
     emergencyTimeoutMinutes, onEmergencyTimeoutMinutesChange,
     customEqSettings, onCustomEqChange,
+    deviceMode, onDeviceModeChange, detectedDevice, effectiveDevice,
     gridSize, onGridSizeChange,
     isMarqueeProgramEnabled, onMarqueeProgramEnabledChange,
     isMarqueeCurrentTrackEnabled, onMarqueeCurrentTrackEnabledChange,
@@ -140,6 +152,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
  }) => {
   const [isVersionHistoryVisible, setIsVersionHistoryVisible] = useState(false);
   const [listeningFor, setListeningFor] = useState<KeyAction | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      onStopPreviewDim();
+    }
+  }, [isOpen, onStopPreviewDim]);
   
   useEffect(() => {
     if (!listeningFor) return;
@@ -189,7 +207,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   return (
     <>
       <div className={`fixed inset-0 bg-black/60 z-30 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`} onClick={() => { if (listeningFor) { setListeningFor(null); setIsRebinding(false); } onClose(); }}></div>
-      <div className={`fixed top-0 right-0 h-full w-72 bg-bg-secondary shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed top-0 right-0 h-full ${effectiveDevice === 'mobile' ? 'w-72' : 'w-80'} bg-bg-secondary shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-4 flex flex-col h-full overflow-y-auto">
             <div className="flex justify-between items-center mb-6 flex-shrink-0">
                 <h2 className="text-xl font-bold text-text-primary">הגדרות</h2>
@@ -219,6 +237,29 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </SettingsSection>
             <SettingsSection title="ממשק" isOpen={openSections.interface} onToggle={() => onToggleSection('interface')}>
                 <div className="space-y-2">
+                    <div className="p-3 rounded-lg bg-bg-primary space-y-2">
+                       <div className="flex justify-between items-center text-sm font-medium text-text-primary">
+                         <span>סוג מסך ומכשיר</span>
+                         <span className="text-[11px] text-accent font-semibold">
+                           {DETECTED_DEVICE_LABELS[effectiveDevice]}
+                         </span>
+                       </div>
+                       <div className="grid grid-cols-4 gap-1.5">
+                         {DEVICE_MODES.map(mode => (
+                           <SettingsButton
+                             key={mode}
+                             label={DEVICE_MODE_LABELS[mode]}
+                             isActive={deviceMode === mode}
+                             onClick={() => onDeviceModeChange(mode)}
+                           />
+                         ))}
+                       </div>
+                       <p className="text-[11px] text-text-secondary leading-snug">
+                         {deviceMode === 'auto'
+                           ? `זוהה אוטומטית: ${DETECTED_DEVICE_LABELS[detectedDevice]}. מתאים את עמודות התחנות ורוחב הממשק.`
+                           : `מצב ידני: ${DETECTED_DEVICE_LABELS[effectiveDevice]} (זוהה במכשיר: ${DETECTED_DEVICE_LABELS[detectedDevice]}).`}
+                       </p>
+                    </div>
                     <div className="p-3 rounded-lg bg-bg-primary space-y-3">
                        <div className="flex flex-col gap-1">
                           <div className="flex justify-between text-sm font-medium text-text-primary"><span>גודל תצוגה</span></div>
@@ -258,7 +299,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     autoDimSeconds={autoDimSeconds}
                     onAutoDimSecondsChange={onAutoDimSecondsChange}
                     dimLevel={dimLevel}
-                    onDimLevelChange={onDimLevelChange}
+                    dimOpacity={dimOpacity}
+                    onDimPresetSelect={onDimPresetSelect}
+                    onDimOpacityChange={onDimOpacityChange}
+                    isPreviewingDim={isPreviewingDim}
+                    onTogglePreviewDim={onTogglePreviewDim}
+                    onSliderPreviewStart={onSliderPreviewStart}
+                    onSliderPreviewEnd={onSliderPreviewEnd}
                     dimWakeMode={dimWakeMode}
                     onDimWakeModeChange={onDimWakeModeChange}
                     emergencyTimeoutMinutes={emergencyTimeoutMinutes}
@@ -267,6 +314,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </SettingsSection>
             <SettingsSection title="קיצורי מקלדת" isOpen={openSections.shortcuts} onToggle={() => onToggleSection('shortcuts')}>
                 <div className="space-y-2">
+                    {effectiveDevice !== 'desktop' && (
+                      <p className="text-[11px] text-text-secondary px-1 leading-snug">
+                        מותאם בעיקר למחשב (זמין גם עם מקלדת חיצונית).
+                      </p>
+                    )}
                     <h4 className="text-xs font-semibold text-text-secondary pt-1 px-1">כללי</h4>
                     {(['playPause', 'volumeUp', 'volumeDown', 'toggleMute', 'nextStation', 'prevStation', 'toggleFullscreen'] as KeyAction[]).map(renderShortcut)}
                     <h4 className="text-xs font-semibold text-text-secondary pt-3 px-1">אקולייזר</h4>
