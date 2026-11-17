@@ -48,7 +48,7 @@ const Player: React.FC<PlayerProps> = (props) => {
     <div className="fixed bottom-0 left-0 right-0 z-30">
       <div className="relative bg-bg-secondary/80 backdrop-blur-lg shadow-t-lg">
         {isVisualizerEnabled && isPlaying && <PlayerVisualizer frequencyData={frequencyData} />}
-        <div className="max-w-7xl mx-auto p-4 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto p-4 flex items-center justify-between gap-4 pixel-shift-target">
           <PlayerInfo station={station} trackInfo={trackInfo} status={status} error={error} showNextSong={showNextSong} onOpenNowPlaying={onOpenNowPlaying} onOpenActionMenu={onOpenActionMenu} isMarqueeProgramEnabled={isMarqueeProgramEnabled} isMarqueeCurrentTrackEnabled={isMarqueeCurrentTrackEnabled} isMarqueeNextTrackEnabled={isMarqueeNextTrackEnabled} marqueeSpeed={marqueeSpeed} marqueeDelay={marqueeDelay} />
           <PlayerControls isActuallyPlaying={isPlaying} isLoading={isLoading} onPlayPause={onPlayPause} onPrev={onPrev} onNext={onNext} />
         </div>

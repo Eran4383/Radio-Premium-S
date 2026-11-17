@@ -118,10 +118,16 @@ export const KEY_ACTION_LABELS: Record<KeyAction, string> = {
     eqCustom: 'EQ: מותאם (5)',
 };
 
+export const DIM_LEVELS = ['light', 'balanced', 'deep', 'warm'] as const;
+export type DimLevel = typeof DIM_LEVELS[number];
+
+export type DimWakeMode = 'singleTap' | 'doubleTap';
+
 export interface SettingsSections {
     theme: boolean;
     eq: boolean;
     interface: boolean;
+    screenProtection: boolean;
     shortcuts: boolean;
 }
 
@@ -138,6 +144,12 @@ export type AllSettings = {
     isStatusIndicatorEnabled: boolean;
     isVolumeControlVisible: boolean;
     showNextSong: boolean;
+    isWakeLockEnabled: boolean;
+    isPixelShiftEnabled: boolean;
+    autoDimSeconds: number;
+    dimLevel: DimLevel;
+    dimWakeMode: DimWakeMode;
+    emergencyTimeoutMinutes: number;
     gridSize: GridSize;
     isMarqueeProgramEnabled: boolean;
     isMarqueeCurrentTrackEnabled: boolean;

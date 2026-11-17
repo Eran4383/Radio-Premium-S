@@ -7,8 +7,8 @@ import {
   getDocs,
   deleteDoc
 } from 'firebase/firestore';
-import { db } from './firebaseConfig';
-import { AllSettings, EqPreset, CustomEqSettings, VisualizerStyle, GridSize, StationFilter, SortOrder, KeyMap, SettingsSections } from '../types/settings';
+import { auth, db } from './firebaseConfig';
+import { AllSettings, DIM_LEVELS } from '../types/settings';
 import { defaultSettings } from '../store/initialSettings';
 import { Station } from '../types/station';
 
@@ -16,16 +16,38 @@ const ADMINS_COLLECTION = 'admins';
 const APP_DATA_COLLECTION = 'app_data';
 const STATIONS_DOC_ID = 'stations_list';
 
-export const saveUserSettings = async (userId: string, settings: AllSettings) => {
+export interface SaveSettingsResult {
+  success: boolean;
+  permissionDenied?: boolean;
+}
+
+const isPermissionDeniedError = (error: unknown): boolean => {
+  const err = error as { code?: string; message?: string } | null;
+  return (
+    err?.code === 'permission-denied' ||
+    (typeof err?.message === 'string' && err.message.includes('Missing or insufficient permissions'))
+  );
+};
+
+export const saveUserSettings = async (userId: string, settings: AllSettings): Promise<SaveSettingsResult> => {
+  if (!userId || auth.currentUser?.uid !== userId) {
+    return { success: false };
+  }
   const userDocRef = doc(db, 'users', userId);
   try {
     await setDoc(userDocRef, { ...settings, lastUpdated: serverTimestamp() }, { merge: true });
+    return { success: true };
   } catch (error) {
-    console.error("Error saving user settings to Firestore:", error);
+    if (isPermissionDeniedError(error)) {
+      return { success: false, permissionDenied: true };
+    }
+    console.warn("Could not save user settings to Firestore:", error);
+    return { success: false };
   }
 };
 
 export const getUserSettings = async (userId: string): Promise<AllSettings | null> => {
+  if (!userId) return null;
   const userDocRef = doc(db, 'users', userId);
   try {
     const docSnap = await getDoc(userDocRef);
@@ -36,7 +58,11 @@ export const getUserSettings = async (userId: string): Promise<AllSettings | nul
     }
     return null;
   } catch (error) {
-    console.error("Error fetching user settings from Firestore:", error);
+    if (isPermissionDeniedError(error)) {
+      console.warn("Firestore read permission denied for user settings; using local settings.");
+      return null;
+    }
+    console.warn("Error fetching user settings from Firestore:", error);
     return null;
   }
 };
@@ -115,6 +141,12 @@ export const normalizeSettings = (raw: any): AllSettings => {
     ...raw,
     favorites: Array.isArray(raw.favorites) ? raw.favorites : defaultSettings.favorites,
     customOrder: Array.isArray(raw.customOrder) ? raw.customOrder : defaultSettings.customOrder,
+    isWakeLockEnabled: typeof raw.isWakeLockEnabled === 'boolean' ? raw.isWakeLockEnabled : defaultSettings.isWakeLockEnabled,
+    isPixelShiftEnabled: typeof raw.isPixelShiftEnabled === 'boolean' ? raw.isPixelShiftEnabled : defaultSettings.isPixelShiftEnabled,
+    autoDimSeconds: typeof raw.autoDimSeconds === 'number' && raw.autoDimSeconds >= 0 ? raw.autoDimSeconds : defaultSettings.autoDimSeconds,
+    dimLevel: DIM_LEVELS.includes(raw.dimLevel) ? raw.dimLevel : defaultSettings.dimLevel,
+    dimWakeMode: raw.dimWakeMode === 'singleTap' || raw.dimWakeMode === 'doubleTap' ? raw.dimWakeMode : defaultSettings.dimWakeMode,
+    emergencyTimeoutMinutes: typeof raw.emergencyTimeoutMinutes === 'number' && raw.emergencyTimeoutMinutes >= 0 ? raw.emergencyTimeoutMinutes : defaultSettings.emergencyTimeoutMinutes,
     settingsSections: { ...defaultSettings.settingsSections, ...raw.settingsSections },
     keyMap: { ...defaultSettings.keyMap, ...raw.keyMap },
   };

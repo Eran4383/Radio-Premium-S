@@ -203,7 +203,7 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <div className={isVisualizerFullscreen ? 'hidden' : 'flex-shrink-0 text-center pt-4 px-4'}>
+        <div className={isVisualizerFullscreen ? 'hidden' : 'flex-shrink-0 text-center pt-4 px-4 pixel-shift-target'}>
             <button onClick={onClose} className="p-2 text-text-secondary hover:text-text-primary" aria-label="סגור">
                 <ChevronDownIcon className="w-8 h-8 mx-auto" />
             </button>
@@ -211,7 +211,7 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
 
         <div 
             ref={scrollRef}
-            className={`flex-grow flex flex-col items-center justify-center gap-4 text-center overflow-y-auto py-4 px-4 ${isVisualizerFullscreen ? 'h-full' : ''}`}
+            className={`flex-grow flex flex-col items-center justify-center gap-4 text-center overflow-y-auto py-4 px-4 pixel-shift-target ${isVisualizerFullscreen ? 'h-full' : ''}`}
         >
             <img 
               src={station?.favicon || 'https://picsum.photos/256'} 
@@ -301,7 +301,7 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
             </div>
         </div>
         
-        <div className={`flex-shrink-0 flex flex-col items-center gap-4 sm:gap-6 pb-4 sm:pb-8 px-4 ${isVisualizerFullscreen ? 'hidden' : ''}`}>
+        <div className={`flex-shrink-0 flex flex-col items-center gap-4 sm:gap-6 pb-4 sm:pb-8 px-4 pixel-shift-target ${isVisualizerFullscreen ? 'hidden' : ''}`}>
             <div className="flex items-center justify-center gap-4">
               <button onClick={onPrev} className="p-4 text-text-secondary hover:text-text-primary transition-colors duration-200" aria-label="הקודם">
                 <SkipNextIcon className="w-12 h-12" />

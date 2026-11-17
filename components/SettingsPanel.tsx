@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Theme, EqPreset, THEMES, EQ_PRESET_KEYS, EQ_PRESET_LABELS, CustomEqSettings, GridSize, User, KeyMap, KeyAction, KEY_ACTION_LABELS, SettingsSections } from '../types';
+import { Theme, EqPreset, THEMES, EQ_PRESET_KEYS, EQ_PRESET_LABELS, CustomEqSettings, GridSize, User, KeyMap, KeyAction, KEY_ACTION_LABELS, SettingsSections, DimLevel, DimWakeMode } from '../types';
 import Auth from './Auth';
 import { BUILD_INFO } from '../buildInfo';
 import SettingsButton from './settings/SettingsButton';
 import ToggleSwitch from './settings/ToggleSwitch';
 import EqSlider from './settings/EqSlider';
 import SettingsSection from './settings/SettingsSection';
+import ScreenProtectionSettings from './settings/ScreenProtectionSettings';
 import VersionHistory from './settings/VersionHistory';
 
 type UpdateStatus = 'idle' | 'checking' | 'downloading' | 'found' | 'not-found' | 'error';
@@ -32,6 +33,18 @@ interface SettingsPanelProps {
   onVolumeControlVisibleChange: (enabled: boolean) => void;
   showNextSong: boolean;
   onShowNextSongChange: (enabled: boolean) => void;
+  isWakeLockEnabled: boolean;
+  onWakeLockEnabledChange: (enabled: boolean) => void;
+  isPixelShiftEnabled: boolean;
+  onPixelShiftEnabledChange: (enabled: boolean) => void;
+  autoDimSeconds: number;
+  onAutoDimSecondsChange: (seconds: number) => void;
+  dimLevel: DimLevel;
+  onDimLevelChange: (level: DimLevel) => void;
+  dimWakeMode: DimWakeMode;
+  onDimWakeModeChange: (mode: DimWakeMode) => void;
+  emergencyTimeoutMinutes: number;
+  onEmergencyTimeoutMinutesChange: (minutes: number) => void;
   customEqSettings: CustomEqSettings;
   onCustomEqChange: (settings: CustomEqSettings) => void;
   gridSize: GridSize;
@@ -107,6 +120,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     isPlayerBarVisualizerEnabled, onPlayerBarVisualizerEnabledChange,
     isStatusIndicatorEnabled, onStatusIndicatorEnabledChange, isVolumeControlVisible, onVolumeControlVisibleChange,
     showNextSong, onShowNextSongChange,
+    isWakeLockEnabled, onWakeLockEnabledChange,
+    isPixelShiftEnabled, onPixelShiftEnabledChange,
+    autoDimSeconds, onAutoDimSecondsChange,
+    dimLevel, onDimLevelChange,
+    dimWakeMode, onDimWakeModeChange,
+    emergencyTimeoutMinutes, onEmergencyTimeoutMinutesChange,
     customEqSettings, onCustomEqChange,
     gridSize, onGridSizeChange,
     isMarqueeProgramEnabled, onMarqueeProgramEnabledChange,
@@ -229,6 +248,22 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <ToggleSwitch label="הצג בקרת עוצמה" enabled={isVolumeControlVisible} onChange={onVolumeControlVisibleChange} />
                     <ToggleSwitch label="הצג שיר הבא" enabled={showNextSong} onChange={onShowNextSongChange} />
                 </div>
+            </SettingsSection>
+            <SettingsSection title="שמירה והגנה על המסך" isOpen={openSections.screenProtection} onToggle={() => onToggleSection('screenProtection')}>
+                <ScreenProtectionSettings
+                    isWakeLockEnabled={isWakeLockEnabled}
+                    onWakeLockEnabledChange={onWakeLockEnabledChange}
+                    isPixelShiftEnabled={isPixelShiftEnabled}
+                    onPixelShiftEnabledChange={onPixelShiftEnabledChange}
+                    autoDimSeconds={autoDimSeconds}
+                    onAutoDimSecondsChange={onAutoDimSecondsChange}
+                    dimLevel={dimLevel}
+                    onDimLevelChange={onDimLevelChange}
+                    dimWakeMode={dimWakeMode}
+                    onDimWakeModeChange={onDimWakeModeChange}
+                    emergencyTimeoutMinutes={emergencyTimeoutMinutes}
+                    onEmergencyTimeoutMinutesChange={onEmergencyTimeoutMinutesChange}
+                />
             </SettingsSection>
             <SettingsSection title="קיצורי מקלדת" isOpen={openSections.shortcuts} onToggle={() => onToggleSection('shortcuts')}>
                 <div className="space-y-2">

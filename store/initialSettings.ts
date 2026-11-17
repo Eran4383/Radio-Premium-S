@@ -5,7 +5,9 @@ export const defaultSettings: AllSettings = {
     customEqSettings: { bass: 0, mid: 0, treble: 0 }, volume: 1,
     isNowPlayingVisualizerEnabled: false, isPlayerBarVisualizerEnabled: false,
     visualizerStyle: 'bars', isStatusIndicatorEnabled: true, isVolumeControlVisible: true,
-    showNextSong: true, gridSize: 3, isMarqueeProgramEnabled: true,
+    showNextSong: true, isWakeLockEnabled: true, isPixelShiftEnabled: true,
+    autoDimSeconds: 120, dimLevel: 'balanced', dimWakeMode: 'singleTap', emergencyTimeoutMinutes: 15,
+    gridSize: 3, isMarqueeProgramEnabled: true,
     isMarqueeCurrentTrackEnabled: true, isMarqueeNextTrackEnabled: true,
     marqueeSpeed: 6, marqueeDelay: 3, filter: StationFilter.All, 
     sortOrderAll: 'priority',
@@ -29,6 +31,7 @@ export const defaultSettings: AllSettings = {
         theme: true,
         eq: true,
         interface: true,
+        screenProtection: true,
         shortcuts: false
     }
 };

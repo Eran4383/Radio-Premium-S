@@ -7,6 +7,7 @@ import { useFavorites } from './hooks/useFavorites';
 import { useTrackInfo } from './hooks/useTrackInfo';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStationsLogic } from './hooks/useStationsLogic';
+import { useScreenProtection } from './hooks/useScreenProtection';
 import MainLayout from './components/MainLayout';
 import { GridSize, CATEGORY_SORTS } from './types/settings';
 
@@ -27,6 +28,14 @@ export default function App() {
   
   const [isRebinding, setIsRebinding] = useState(false);
   useKeyboardShortcuts({ allSettings, isRebinding, handlePlayPause, handleNext, handlePrev, setAllSettings, preMuteVolume, setPreMuteVolume });
+  const { isDimmed, wakeFromDim } = useScreenProtection({
+    isWakeLockEnabled: allSettings.isWakeLockEnabled,
+    isPixelShiftEnabled: allSettings.isPixelShiftEnabled,
+    autoDimSeconds: allSettings.autoDimSeconds,
+    dimWakeMode: allSettings.dimWakeMode,
+    emergencyTimeoutMinutes: allSettings.emergencyTimeoutMinutes,
+    isPlayingOrLoading: playerState.status === 'PLAYING' || playerState.status === 'LOADING',
+  });
 
   // 2. UI State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -69,6 +78,7 @@ export default function App() {
       mergeModal={mergeModal} pendingRemoval={pendingRemoval} confirmRemoval={confirmRemoval} cancelRemoval={cancelRemoval}
       currentSortOrder={currentSortOrder} setSortOrder={setSortOrder} handleCategorySortClick={handleCategorySortClick} categoryButtonLabel={categoryButtonLabel} currentCategoryIndex={currentCategoryIndex}
       handleTouchStart={handleTouchStart} handleTouchMove={handleTouchMove} handleTouchEnd={handleTouchEnd}
+      isDimmed={isDimmed} wakeFromDim={wakeFromDim}
     />
   );
 }

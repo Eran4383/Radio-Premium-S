@@ -25,6 +25,9 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
   });
 
   const settingsRef = useRef(allSettings);
+  const lastSyncedSettingsJsonRef = useRef<string | null>(null);
+  const isCloudWriteBlockedRef = useRef(false);
+
   useEffect(() => {
     settingsRef.current = allSettings;
   }, [allSettings]);
@@ -34,6 +37,8 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
     if (!user) {
       setIsInitialSyncDone(false);
       setIsCloudSyncing(false);
+      lastSyncedSettingsJsonRef.current = null;
+      isCloudWriteBlockedRef.current = false;
     }
   }, [user]);
 
@@ -51,15 +56,34 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
         
         const hasSyncedBefore = localStorage.getItem('radio-has-synced-with-account') === 'true';
         const rawCloudSettings = await getUserSettings(user.uid);
+
+        if (!rawCloudSettings) {
+          const initialAccountSettings = normalizeSettings(loadSettingsFromLocalStorage());
+          console.log("[Sync] No cloud settings found, using local settings.");
+          lastSyncedSettingsJsonRef.current = JSON.stringify(initialAccountSettings);
+          setAllSettings(initialAccountSettings);
+
+          if (!isCloudWriteBlockedRef.current) {
+            const res = await saveUserSettings(user.uid, initialAccountSettings);
+            if (!res.success && res.permissionDenied) {
+              isCloudWriteBlockedRef.current = true;
+              saveSettingsToLocalStorage(initialAccountSettings);
+              console.warn("[Sync] Firestore write permission denied. Settings will be saved locally.");
+            }
+          }
+
+          localStorage.setItem('radio-has-synced-with-account', 'true');
+          setIsInitialSyncDone(true);
+          setIsCloudSyncing(false);
+          return;
+        }
+
         const cloudSettings = normalizeSettings(rawCloudSettings);
 
-        if (hasSyncedBefore || !rawCloudSettings) {
+        if (hasSyncedBefore) {
           console.log("[Sync] Loading settings from cloud, skipping conflict check.");
+          lastSyncedSettingsJsonRef.current = JSON.stringify(cloudSettings);
           setAllSettings(cloudSettings);
-          if (!rawCloudSettings) {
-            console.log("[Sync] No cloud settings found, creating initial document.");
-            await saveUserSettings(user.uid, cloudSettings);
-          }
           localStorage.setItem('radio-has-synced-with-account', 'true');
           setIsInitialSyncDone(true);
           setIsCloudSyncing(false);
@@ -71,10 +95,16 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
             console.log("[Sync] Conflict detected. Opening merge modal.");
             setMergeModal({
               isOpen: true,
-              onMerge: () => {
+              onMerge: async () => {
                 console.log("[Sync] User chose to merge/keep local settings.");
+                lastSyncedSettingsJsonRef.current = JSON.stringify(localSettings);
                 setAllSettings(localSettings);
-                saveUserSettings(user.uid, localSettings);
+                const res = await saveUserSettings(user.uid, localSettings);
+                if (!res.success && res.permissionDenied) {
+                  isCloudWriteBlockedRef.current = true;
+                  saveSettingsToLocalStorage(localSettings);
+                  console.warn("[Sync] Firestore write permission denied. Settings will be saved locally.");
+                }
                 localStorage.setItem('radio-has-synced-with-account', 'true');
                 setMergeModal(prev => ({ ...prev, isOpen: false }));
                 setIsInitialSyncDone(true);
@@ -82,6 +112,7 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
               },
               onDiscardLocal: () => {
                 console.log("[Sync] User chose to discard local settings and use cloud.");
+                lastSyncedSettingsJsonRef.current = JSON.stringify(cloudSettings);
                 setAllSettings(cloudSettings);
                 localStorage.setItem('radio-has-synced-with-account', 'true');
                 setMergeModal(prev => ({ ...prev, isOpen: false }));
@@ -91,6 +122,7 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
             });
           } else {
             console.log("[Sync] No conflicts found. Using cloud settings.");
+            lastSyncedSettingsJsonRef.current = JSON.stringify(cloudSettings);
             setAllSettings(cloudSettings);
             localStorage.setItem('radio-has-synced-with-account', 'true');
             setIsInitialSyncDone(true);
@@ -108,14 +140,33 @@ export const useSettings = (user: User | null, isAuthReady: boolean) => {
 
   // Persistence
   useEffect(() => {
-    // Local persistence always runs
     if (!user) {
       saveSettingsToLocalStorage(allSettings);
+      return;
     }
     
     // Cloud persistence ONLY runs if we are logged in AND the initial sync is finished AND we aren't currently syncing
-    if (user && isInitialSyncDone && !isCloudSyncing) {
-      saveUserSettings(user.uid, allSettings);
+    if (isInitialSyncDone && !isCloudSyncing) {
+      const serialized = JSON.stringify(allSettings);
+      if (serialized === lastSyncedSettingsJsonRef.current) {
+        return;
+      }
+      lastSyncedSettingsJsonRef.current = serialized;
+
+      if (isCloudWriteBlockedRef.current) {
+        saveSettingsToLocalStorage(allSettings);
+        return;
+      }
+
+      saveUserSettings(user.uid, allSettings).then((res) => {
+        if (!res.success) {
+          saveSettingsToLocalStorage(allSettings);
+          if (res.permissionDenied && !isCloudWriteBlockedRef.current) {
+            isCloudWriteBlockedRef.current = true;
+            console.warn("[Sync] Firestore write permission denied. Falling back to local storage for this session.");
+          }
+        }
+      });
     }
   }, [allSettings, user, isCloudSyncing, isInitialSyncDone]);
 

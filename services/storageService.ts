@@ -1,4 +1,4 @@
-import { AllSettings, StationFilter, SortOrder, VisualizerStyle, GridSize, KeyMap, SettingsSections, EqPreset, CustomEqSettings } from '../types/settings';
+import { AllSettings, StationFilter, SortOrder, VisualizerStyle, GridSize, KeyMap, SettingsSections, EqPreset, CustomEqSettings, DimLevel, DimWakeMode } from '../types/settings';
 import { defaultSettings } from '../store/initialSettings';
 import { Theme } from '../config/themes';
 
@@ -33,6 +33,12 @@ export const saveSettingsToLocalStorage = (settings: AllSettings) => {
     saveToLocal('radio-status-indicator-enabled', settings.isStatusIndicatorEnabled);
     saveToLocal('radio-volume-control-visible', settings.isVolumeControlVisible);
     saveToLocal('radio-show-next-song', settings.showNextSong);
+    saveToLocal('radio-wake-lock-enabled', settings.isWakeLockEnabled);
+    saveToLocal('radio-pixel-shift-enabled', settings.isPixelShiftEnabled);
+    saveToLocal('radio-auto-dim-seconds', settings.autoDimSeconds);
+    saveToLocal('radio-dim-level', settings.dimLevel);
+    saveToLocal('radio-dim-wake-mode', settings.dimWakeMode);
+    saveToLocal('radio-emergency-timeout-minutes', settings.emergencyTimeoutMinutes);
     saveToLocal('radio-grid-size', settings.gridSize);
     saveToLocal('radio-marquee-program-enabled', settings.isMarqueeProgramEnabled);
     saveToLocal('radio-marquee-current-enabled', settings.isMarqueeCurrentTrackEnabled);
@@ -59,6 +65,12 @@ export const loadSettingsFromLocalStorage = (): AllSettings => {
   const isStatusIndicatorEnabled = getFromLocal<boolean>('radio-status-indicator-enabled', defaultSettings.isStatusIndicatorEnabled);
   const isVolumeControlVisible = getFromLocal<boolean>('radio-volume-control-visible', defaultSettings.isVolumeControlVisible);
   const showNextSong = getFromLocal<boolean>('radio-show-next-song', defaultSettings.showNextSong);
+  const isWakeLockEnabled = getFromLocal<boolean>('radio-wake-lock-enabled', defaultSettings.isWakeLockEnabled);
+  const isPixelShiftEnabled = getFromLocal<boolean>('radio-pixel-shift-enabled', defaultSettings.isPixelShiftEnabled);
+  const autoDimSeconds = getFromLocal<number>('radio-auto-dim-seconds', defaultSettings.autoDimSeconds);
+  const dimLevel = getFromLocal<DimLevel>('radio-dim-level', defaultSettings.dimLevel);
+  const dimWakeMode = getFromLocal<DimWakeMode>('radio-dim-wake-mode', defaultSettings.dimWakeMode);
+  const emergencyTimeoutMinutes = getFromLocal<number>('radio-emergency-timeout-minutes', defaultSettings.emergencyTimeoutMinutes);
   const gridSize = getFromLocal<GridSize>('radio-grid-size', defaultSettings.gridSize);
   const isMarqueeProgramEnabled = getFromLocal<boolean>('radio-marquee-program-enabled', defaultSettings.isMarqueeProgramEnabled);
   const isMarqueeCurrentTrackEnabled = getFromLocal<boolean>('radio-marquee-current-enabled', defaultSettings.isMarqueeCurrentTrackEnabled);
@@ -74,7 +86,9 @@ export const loadSettingsFromLocalStorage = (): AllSettings => {
   return {
     favorites, customOrder, theme, eqPreset, customEqSettings, volume,
     isNowPlayingVisualizerEnabled, isPlayerBarVisualizerEnabled, visualizerStyle,
-    isStatusIndicatorEnabled, isVolumeControlVisible, showNextSong, gridSize,
+    isStatusIndicatorEnabled, isVolumeControlVisible, showNextSong, isWakeLockEnabled,
+    isPixelShiftEnabled, autoDimSeconds, dimLevel, dimWakeMode, emergencyTimeoutMinutes,
+    gridSize,
     isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled,
     marqueeSpeed, marqueeDelay, filter, sortOrderAll, sortOrderFavorites,
     keyMap, settingsSections

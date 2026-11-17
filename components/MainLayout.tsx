@@ -9,6 +9,7 @@ import AdminPanel from './AdminPanel';
 import StationListSkeleton from './StationListSkeleton';
 import MergeDataModal from './MergeDataModal';
 import ConfirmRemoveModal from './ConfirmRemoveModal';
+import DimOverlay from './DimOverlay';
 import { MenuIcon } from './Icons';
 
 interface MainLayoutProps {
@@ -81,6 +82,10 @@ interface MainLayoutProps {
   handleTouchStart: (e: React.TouchEvent) => void;
   handleTouchMove: (e: React.TouchEvent) => void;
   handleTouchEnd: () => void;
+
+  // Screen Protection
+  isDimmed: boolean;
+  wakeFromDim: () => void;
 }
 
 const SortButton: React.FC<{ label: string; order: SortOrder; currentOrder: SortOrder; setOrder: (order: SortOrder) => void }> = ({ label, order, currentOrder, setOrder }) => (
@@ -99,11 +104,18 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
     actionMenuState, closeActionMenu, openActionMenu,
     mergeModal, pendingRemoval, confirmRemoval, cancelRemoval,
     currentSortOrder, setSortOrder, handleCategorySortClick, categoryButtonLabel, currentCategoryIndex,
-    handleTouchStart, handleTouchMove, handleTouchEnd
+    handleTouchStart, handleTouchMove, handleTouchEnd,
+    isDimmed, wakeFromDim
   } = props;
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col">
+    <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col overflow-x-clip">
+      <DimOverlay
+        isDimmed={isDimmed}
+        dimLevel={allSettings.dimLevel}
+        dimWakeMode={allSettings.dimWakeMode}
+        onWake={wakeFromDim}
+      />
       <MergeDataModal {...mergeModal} />
       <ConfirmRemoveModal 
         isOpen={!!pendingRemoval}
@@ -121,27 +133,29 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
       />
       
       <header className="p-4 bg-bg-secondary/50 backdrop-blur-sm sticky top-0 z-20 shadow-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-text-secondary hover:text-text-primary" aria-label="הגדרות"><MenuIcon className="w-6 h-6" /></button>
-            <div className="flex items-center bg-gray-700 rounded-full p-1">
-              <button onClick={() => setAllSettings(s => ({...s, filter: StationFilter.All}))} className={`px-4 py-1 text-sm font-medium rounded-full transition-colors ${allSettings.filter === StationFilter.All ? 'bg-accent text-white' : 'text-gray-300'}`}>{StationFilter.All}</button>
-              <button onClick={() => setAllSettings(s => ({...s, filter: StationFilter.Favorites}))} className={`px-4 py-1 text-sm font-medium rounded-full transition-colors ${allSettings.filter === StationFilter.Favorites ? 'bg-accent text-white' : 'text-gray-300'}`}>{StationFilter.Favorites}</button>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-accent">רדיו פרימיום</h1>
-        </div>
-        <div className="max-w-7xl mx-auto mt-4">
-            <div className="flex items-center justify-center gap-2">
-                <span className="text-xs text-text-secondary">מיון:</span>
-                <div className="flex items-center bg-gray-700 rounded-full p-1 gap-1 flex-wrap justify-center">
-                    <SortButton label="שלי" order="custom" currentOrder={currentSortOrder} setOrder={setSortOrder} />
-                    <SortButton label="פופולריות" order="priority" currentOrder={currentSortOrder} setOrder={setSortOrder} />
-                    <button onClick={() => setSortOrder(currentSortOrder === 'name_asc' ? 'name_desc' : 'name_asc')} className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${currentSortOrder.startsWith('name_') ? 'bg-accent text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}>{currentSortOrder === 'name_desc' ? 'ת-א' : 'א-ת'}</button>
-                    <button onClick={handleCategorySortClick} className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${currentCategoryIndex !== -1 ? 'bg-accent text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}>{categoryButtonLabel}</button>
-                </div>
-            </div>
+        <div className="pixel-shift-target">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+              <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-text-secondary hover:text-text-primary" aria-label="הגדרות"><MenuIcon className="w-6 h-6" /></button>
+              <div className="flex items-center bg-gray-700 rounded-full p-1">
+                <button onClick={() => setAllSettings(s => ({...s, filter: StationFilter.All}))} className={`px-4 py-1 text-sm font-medium rounded-full transition-colors ${allSettings.filter === StationFilter.All ? 'bg-accent text-white' : 'text-gray-300'}`}>{StationFilter.All}</button>
+                <button onClick={() => setAllSettings(s => ({...s, filter: StationFilter.Favorites}))} className={`px-4 py-1 text-sm font-medium rounded-full transition-colors ${allSettings.filter === StationFilter.Favorites ? 'bg-accent text-white' : 'text-gray-300'}`}>{StationFilter.Favorites}</button>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold text-accent">רדיו פרימיום</h1>
+          </div>
+          <div className="max-w-7xl mx-auto mt-4">
+              <div className="flex items-center justify-center gap-2">
+                  <span className="text-xs text-text-secondary">מיון:</span>
+                  <div className="flex items-center bg-gray-700 rounded-full p-1 gap-1 flex-wrap justify-center">
+                      <SortButton label="שלי" order="custom" currentOrder={currentSortOrder} setOrder={setSortOrder} />
+                      <SortButton label="פופולריות" order="priority" currentOrder={currentSortOrder} setOrder={setSortOrder} />
+                      <button onClick={() => setSortOrder(currentSortOrder === 'name_asc' ? 'name_desc' : 'name_asc')} className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${currentSortOrder.startsWith('name_') ? 'bg-accent text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}>{currentSortOrder === 'name_desc' ? 'ת-א' : 'א-ת'}</button>
+                      <button onClick={handleCategorySortClick} className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${currentCategoryIndex !== -1 ? 'bg-accent text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'}`}>{categoryButtonLabel}</button>
+                  </div>
+              </div>
+          </div>
         </div>
       </header>
-      <main className="flex-grow pb-48" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+      <main className="flex-grow pb-48 pixel-shift-target" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
         {stationsStatus === 'loading' ? ( <StationListSkeleton /> ) : stationsStatus === 'error' ? ( <p className="text-center text-red-400 p-4">{error}</p> ) : displayedStations.length > 0 ? ( <StationList stations={displayedStations} currentStation={playerState.station} onSelectStation={handleSelectStation} isFavorite={isFavorite} toggleFavorite={toggleFavorite} onReorder={handleReorder} isStreamActive={playerState.status === 'PLAYING'} isStatusIndicatorEnabled={allSettings.isStatusIndicatorEnabled} gridSize={allSettings.gridSize} sortOrder={currentSortOrder} /> ) : ( <div className="text-center p-8 text-text-secondary"> <h2 className="text-xl font-semibold">{allSettings.filter === StationFilter.Favorites ? 'אין תחנות במועדפים' : 'לא נמצאו תחנות'}</h2> <p>{allSettings.filter === StationFilter.Favorites ? 'אפשר להוסיף תחנות על ידי לחיצה על כפור הכוכב.' : 'נסה לרענן את העמוד.'}</p> </div> )}
       </main>
       <SettingsPanel 
@@ -166,6 +180,18 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         onVolumeControlVisibleChange={(v) => setAllSettings(s=>({...s, isVolumeControlVisible: v}))} 
         showNextSong={allSettings.showNextSong} 
         onShowNextSongChange={(v) => setAllSettings(s=>({...s, showNextSong: v}))} 
+        isWakeLockEnabled={allSettings.isWakeLockEnabled}
+        onWakeLockEnabledChange={(v) => setAllSettings(s=>({...s, isWakeLockEnabled: v}))}
+        isPixelShiftEnabled={allSettings.isPixelShiftEnabled}
+        onPixelShiftEnabledChange={(v) => setAllSettings(s=>({...s, isPixelShiftEnabled: v}))}
+        autoDimSeconds={allSettings.autoDimSeconds}
+        onAutoDimSecondsChange={(v) => setAllSettings(s=>({...s, autoDimSeconds: v}))}
+        dimLevel={allSettings.dimLevel}
+        onDimLevelChange={(v) => setAllSettings(s=>({...s, dimLevel: v}))}
+        dimWakeMode={allSettings.dimWakeMode}
+        onDimWakeModeChange={(v) => setAllSettings(s=>({...s, dimWakeMode: v}))}
+        emergencyTimeoutMinutes={allSettings.emergencyTimeoutMinutes}
+        onEmergencyTimeoutMinutesChange={(v) => setAllSettings(s=>({...s, emergencyTimeoutMinutes: v}))}
         customEqSettings={allSettings.customEqSettings} 
         onCustomEqChange={(v) => setAllSettings(s=>({...s, customEqSettings: v}))} 
         gridSize={allSettings.gridSize} 

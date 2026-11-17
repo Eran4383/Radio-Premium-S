@@ -1,0 +1,18 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="114" fill="#0f172a"/>
+  <!-- Stylized "S" that looks like a sound wave -->
+  <path d="M140 180C140 120 240 100 256 100C280 100 372 120 372 180C372 240 256 240 256 256C256 272 140 272 140 332C140 392 232 412 256 412C280 412 372 392 372 332" stroke="url(#grad)" stroke-width="50" stroke-linecap="round" fill="none"/>
+  
+  <!-- Modern "Signal" dots -->
+  <circle cx="256" cy="256" r="15" fill="#f97316" />
+  <circle cx="210" cy="256" r="8" fill="#fbbf24" opacity="0.6" />
+  <circle cx="302" cy="256" r="8" fill="#fbbf24" opacity="0.6" />
+
+  <defs>
+    <linearGradient id="grad" x1="140" y1="100" x2="372" y2="412" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fbbf24"/>
+      <stop offset="0.5" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+</svg>

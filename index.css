@@ -194,3 +194,8 @@ body {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+.pixel-shift-target {
+  transform: translate3d(var(--pixel-shift-x, 0px), var(--pixel-shift-y, 0px), 0);
+  transition: transform 1.2s ease-out;
+}
