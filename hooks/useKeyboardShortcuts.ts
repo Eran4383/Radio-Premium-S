@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
-import { KeyAction } from '../types/settings';
-import { AllSettings } from '../types/settings';
+import { AllSettings, EqPreset, KeyAction } from '../types/settings';
 
 interface KeyboardShortcutsProps {
   allSettings: AllSettings;
@@ -9,6 +8,7 @@ interface KeyboardShortcutsProps {
   handleNext: () => void;
   handlePrev: () => void;
   setAllSettings: React.Dispatch<React.SetStateAction<AllSettings>>;
+  onEqPresetChange?: (preset: EqPreset) => void;
   preMuteVolume: number;
   setPreMuteVolume: React.Dispatch<React.SetStateAction<number>>;
 }
@@ -20,6 +20,7 @@ export const useKeyboardShortcuts = ({
   handleNext,
   handlePrev,
   setAllSettings,
+  onEqPresetChange,
   preMuteVolume,
   setPreMuteVolume
 }: KeyboardShortcutsProps) => {
@@ -45,10 +46,10 @@ export const useKeyboardShortcuts = ({
         switch (action) {
           case 'playPause': handlePlayPause(); break;
           case 'volumeUp': 
-            setAllSettings(s => ({...s, volume: Math.min(1, s.volume + 0.05)})); 
+            setAllSettings(s => ({...s, volume: Math.round(Math.min(1, s.volume + 0.01) * 100) / 100})); 
             break;
           case 'volumeDown': 
-            setAllSettings(s => ({...s, volume: Math.max(0, s.volume - 0.05)})); 
+            setAllSettings(s => ({...s, volume: Math.round(Math.max(0, s.volume - 0.01) * 100) / 100})); 
             break;
           case 'toggleMute':
             if (allSettings.volume > 0) {
@@ -67,17 +68,17 @@ export const useKeyboardShortcuts = ({
               document.exitFullscreen().catch(console.error);
             }
             break;
-          case 'eqFlat': setAllSettings(s => ({...s, eqPreset: 'flat'})); break;
-          case 'eqBassBoost': setAllSettings(s => ({...s, eqPreset: 'bassBoost'})); break;
-          case 'eqVocalBoost': setAllSettings(s => ({...s, eqPreset: 'vocalBoost'})); break;
-          case 'eqRock': setAllSettings(s => ({...s, eqPreset: 'rock'})); break;
-          case 'eqMovie': setAllSettings(s => ({...s, eqPreset: 'movie'})); break;
-          case 'eqCustom': setAllSettings(s => ({...s, eqPreset: 'custom'})); break;
+          case 'eqFlat': onEqPresetChange ? onEqPresetChange('flat') : setAllSettings(s => ({...s, eqPreset: 'flat'})); break;
+          case 'eqBassBoost': onEqPresetChange ? onEqPresetChange('bassBoost') : setAllSettings(s => ({...s, eqPreset: 'bassBoost'})); break;
+          case 'eqVocalBoost': onEqPresetChange ? onEqPresetChange('vocalBoost') : setAllSettings(s => ({...s, eqPreset: 'vocalBoost'})); break;
+          case 'eqRock': onEqPresetChange ? onEqPresetChange('rock') : setAllSettings(s => ({...s, eqPreset: 'rock'})); break;
+          case 'eqMovie': onEqPresetChange ? onEqPresetChange('movie') : setAllSettings(s => ({...s, eqPreset: 'movie'})); break;
+          case 'eqCustom': onEqPresetChange ? onEqPresetChange('custom') : setAllSettings(s => ({...s, eqPreset: 'custom'})); break;
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [allSettings.keyMap, allSettings.volume, handlePlayPause, handleNext, handlePrev, preMuteVolume, isRebinding, setAllSettings, setPreMuteVolume]);
+  }, [allSettings.keyMap, allSettings.volume, handlePlayPause, handleNext, handlePrev, preMuteVolume, isRebinding, setAllSettings, onEqPresetChange, setPreMuteVolume]);
 };

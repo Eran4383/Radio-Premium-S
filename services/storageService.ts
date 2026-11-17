@@ -1,4 +1,4 @@
-import { AllSettings, StationFilter, SortOrder, VisualizerStyle, GridSize, KeyMap, SettingsSections, EqPreset, CustomEqSettings, DimLevel, DimWakeMode, DeviceMode } from '../types/settings';
+import { AllSettings, StationFilter, SortOrder, VisualizerStyle, GridSize, KeyMap, SettingsSections, EqPreset, CustomEqSettings, DimLevel, DimWakeMode, DeviceMode, DeviceTypeDefaults, DeviceProfile } from '../types/settings';
 import { defaultSettings } from '../store/initialSettings';
 import { Theme } from '../config/themes';
 
@@ -52,6 +52,10 @@ export const saveSettingsToLocalStorage = (settings: AllSettings) => {
     saveToLocal('radio-sort-order-favorites', settings.sortOrderFavorites);
     saveToLocal('radio-key-map', settings.keyMap);
     saveToLocal('radio-settings-sections', settings.settingsSections);
+    saveToLocal('radio-device-type-defaults', settings.deviceTypeDefaults);
+    saveToLocal('radio-device-profiles', settings.deviceProfiles);
+    saveToLocal('radio-custom-avatar', settings.customAvatarUrl ?? null);
+    saveToLocal('radio-custom-display-name', settings.customDisplayName ?? null);
 };
 
 export const loadSettingsFromLocalStorage = (): AllSettings => {
@@ -86,6 +90,20 @@ export const loadSettingsFromLocalStorage = (): AllSettings => {
   const sortOrderFavorites = getFromLocal<SortOrder>('radio-sort-order-favorites', defaultSettings.sortOrderFavorites);
   const keyMap = getFromLocal<KeyMap>('radio-key-map', defaultSettings.keyMap);
   const settingsSections = getFromLocal<SettingsSections>('radio-settings-sections', defaultSettings.settingsSections);
+  const deviceTypeDefaults = getFromLocal<DeviceTypeDefaults>('radio-device-type-defaults', defaultSettings.deviceTypeDefaults);
+  const deviceProfiles = getFromLocal<Record<string, DeviceProfile>>('radio-device-profiles', defaultSettings.deviceProfiles);
+  const customAvatarUrl = getFromLocal<string | null>('radio-custom-avatar', defaultSettings.customAvatarUrl ?? null);
+  const customDisplayName = getFromLocal<string | null>('radio-custom-display-name', defaultSettings.customDisplayName ?? null);
+
+  const sanitizedProfiles: Record<string, DeviceProfile> = {};
+  for (const [id, profile] of Object.entries(deviceProfiles || {})) {
+    if (!profile || typeof profile !== 'object') continue;
+    const rawName = typeof profile.name === 'string' ? profile.name.trim() : '';
+    sanitizedProfiles[id] = {
+      ...profile,
+      name: rawName.replace(/^WIN(10|11|8\.1|8|7)(_\d+)?$/, 'Win$1$2'),
+    };
+  }
 
   return {
     favorites, customOrder, theme, eqPreset, customEqSettings, volume,
@@ -95,6 +113,14 @@ export const loadSettingsFromLocalStorage = (): AllSettings => {
     deviceMode, gridSize,
     isMarqueeProgramEnabled, isMarqueeCurrentTrackEnabled, isMarqueeNextTrackEnabled,
     marqueeSpeed, marqueeDelay, filter, sortOrderAll, sortOrderFavorites,
-    keyMap, settingsSections
+    keyMap, settingsSections,
+    deviceTypeDefaults: {
+      mobile: { ...defaultSettings.deviceTypeDefaults.mobile, ...(deviceTypeDefaults?.mobile || {}) },
+      tablet: { ...defaultSettings.deviceTypeDefaults.tablet, ...(deviceTypeDefaults?.tablet || {}) },
+      desktop: { ...defaultSettings.deviceTypeDefaults.desktop, ...(deviceTypeDefaults?.desktop || {}) },
+    },
+    deviceProfiles: sanitizedProfiles,
+    customAvatarUrl,
+    customDisplayName,
   };
 };

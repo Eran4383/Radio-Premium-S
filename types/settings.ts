@@ -43,7 +43,7 @@ export const VISUALIZER_STYLE_LABELS: Record<VisualizerStyle, string> = {
     equalizer: 'אקולייזר',
 };
 
-export const GRID_SIZES = [1, 2, 3, 4, 5] as const;
+export const GRID_SIZES = [0, 1, 2, 3, 4, 5] as const;
 export type GridSize = typeof GRID_SIZES[number];
 
 export type SortOrder = 'priority' | 'name_asc' | 'name_desc' | 'custom' | 'category_style' | 'category_identity' | 'category_region' | 'category_nameStructure';
@@ -108,6 +108,58 @@ export const DETECTED_DEVICE_LABELS: Record<DetectedDeviceType, string> = {
     desktop: 'מחשב',
 };
 
+export interface DeviceSignature {
+    platform: string;
+    screenBucket: string;
+    touchCapable: boolean;
+    userAgentFamily: string;
+}
+
+export const DEVICE_SCOPED_SETTING_KEYS = [
+    'eqPreset',
+    'customEqSettings',
+    'isWakeLockEnabled',
+    'isPixelShiftEnabled',
+    'autoDimSeconds',
+    'dimLevel',
+    'dimOpacity',
+    'dimWakeMode',
+    'emergencyTimeoutMinutes',
+    'deviceMode',
+    'gridSize',
+    'isNowPlayingVisualizerEnabled',
+    'isPlayerBarVisualizerEnabled',
+    'visualizerStyle',
+    'isStatusIndicatorEnabled',
+    'isVolumeControlVisible',
+    'showNextSong',
+    'isMarqueeProgramEnabled',
+    'isMarqueeCurrentTrackEnabled',
+    'isMarqueeNextTrackEnabled',
+    'marqueeSpeed',
+    'marqueeDelay',
+] as const;
+
+export type DeviceScopedSettingKey = typeof DEVICE_SCOPED_SETTING_KEYS[number];
+
+export type DeviceScopedSettings = Pick<AllSettings, DeviceScopedSettingKey>;
+
+export type DeviceTypeDefaults = Record<DetectedDeviceType, Partial<DeviceScopedSettings>>;
+
+export interface DeviceProfile {
+    id: string;
+    name: string;
+    deviceType: DetectedDeviceType;
+    signature: DeviceSignature;
+    createdAt: number;
+    lastSeenAt: number;
+    overrides: Partial<DeviceScopedSettings>;
+}
+
+export type SettingsEditScope =
+    | { kind: 'device'; deviceId: string }
+    | { kind: 'type'; deviceType: DetectedDeviceType };
+
 export interface SettingsSections {
     theme: boolean;
     eq: boolean;
@@ -155,4 +207,8 @@ export type AllSettings = {
     sortOrderFavorites: SortOrder;
     keyMap: KeyMap;
     settingsSections: SettingsSections;
+    deviceTypeDefaults: DeviceTypeDefaults;
+    deviceProfiles: Record<string, DeviceProfile>;
+    customAvatarUrl?: string | null;
+    customDisplayName?: string | null;
 };

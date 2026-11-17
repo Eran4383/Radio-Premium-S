@@ -33,5 +33,25 @@ export const defaultSettings: AllSettings = {
         interface: true,
         screenProtection: true,
         shortcuts: false
-    }
+    },
+    deviceTypeDefaults: {
+        mobile: {
+            isWakeLockEnabled: true,
+            isPixelShiftEnabled: true,
+            autoDimSeconds: 120,
+        },
+        tablet: {
+            isWakeLockEnabled: true,
+            isPixelShiftEnabled: true,
+            autoDimSeconds: 120,
+        },
+        desktop: {
+            isWakeLockEnabled: false,
+            isPixelShiftEnabled: false,
+            autoDimSeconds: 0,
+        },
+    },
+    deviceProfiles: {},
+    customAvatarUrl: null,
+    customDisplayName: null,
 };

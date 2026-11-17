@@ -329,10 +329,8 @@ const NowPlaying: React.FC<NowPlayingProps> = ({
                   value={volume}
                   onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
                   onWheel={(e) => {
-                      // Allow volume adjustment with mouse wheel when hovering
-                      // Increased step to 0.05 for better UX
                       const direction = e.deltaY > 0 ? -1 : 1;
-                      const newVolume = Math.min(1, Math.max(0, volume + (direction * 0.05)));
+                      const newVolume = Math.round(Math.min(1, Math.max(0, volume + (direction * 0.01))) * 100) / 100;
                       onVolumeChange(newVolume);
                   }}
                   className="w-full accent-teal-500"

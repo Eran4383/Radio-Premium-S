@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { DimLevel, DimWakeMode } from '../../types/settings';
+import { DimLevel, DimWakeMode, DeviceScopedSettingKey } from '../../types/settings';
 import ToggleSwitch from './ToggleSwitch';
 import SettingsButton from './SettingsButton';
+import OverrideHint from './OverrideHint';
 
 interface ScreenProtectionSettingsProps {
   isWakeLockEnabled: boolean;
@@ -22,6 +23,8 @@ interface ScreenProtectionSettingsProps {
   onDimWakeModeChange: (mode: DimWakeMode) => void;
   emergencyTimeoutMinutes: number;
   onEmergencyTimeoutMinutesChange: (minutes: number) => void;
+  overriddenKeys?: Set<DeviceScopedSettingKey>;
+  onResetOverrideKey?: (key: DeviceScopedSettingKey) => void;
 }
 
 const AUTO_DIM_PRESETS = [
@@ -90,6 +93,8 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
   onDimWakeModeChange,
   emergencyTimeoutMinutes,
   onEmergencyTimeoutMinutesChange,
+  overriddenKeys,
+  onResetOverrideKey,
 }) => {
   const isDimPreset = AUTO_DIM_PRESETS.some(p => p.value === autoDimSeconds);
   const [isCustomDimOpen, setIsCustomDimOpen] = useState(!isDimPreset);
@@ -141,11 +146,18 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
 
   return (
     <div className="space-y-3">
-      <ToggleSwitch
-        label="שמור על מסך דולק בזמן פעילות"
-        enabled={isWakeLockEnabled}
-        onChange={onWakeLockEnabledChange}
-      />
+      <div>
+        <ToggleSwitch
+          label="שמור על מסך דולק בזמן פעילות"
+          enabled={isWakeLockEnabled}
+          onChange={onWakeLockEnabledChange}
+        />
+        <OverrideHint
+          settingKey="isWakeLockEnabled"
+          isOverridden={!!overriddenKeys?.has('isWakeLockEnabled')}
+          onResetKey={onResetOverrideKey}
+        />
+      </div>
 
       <div className="space-y-1">
         <ToggleSwitch
@@ -156,6 +168,11 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
         <p className="text-[11px] text-text-secondary px-3 leading-snug">
           הזזה זעירה ובלתי מורגשת מדי 4 דקות (בזמן ניגון והמתנה) לשמירה על תקינות המסך.
         </p>
+        <OverrideHint
+          settingKey="isPixelShiftEnabled"
+          isOverridden={!!overriddenKeys?.has('isPixelShiftEnabled')}
+          onResetKey={onResetOverrideKey}
+        />
       </div>
 
       {/* Auto-Dim Timing */}
@@ -210,6 +227,11 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
             </button>
           </div>
         )}
+        <OverrideHint
+          settingKey="autoDimSeconds"
+          isOverridden={!!overriddenKeys?.has('autoDimSeconds')}
+          onResetKey={onResetOverrideKey}
+        />
       </div>
 
       {/* Dim Level, Manual Slider & Live Preview (when auto-dim is enabled) */}
@@ -276,6 +298,15 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
             <div className={`p-2 rounded border text-[11px] leading-snug ${recommendation.className}`}>
               {recommendation.text}
             </div>
+            <OverrideHint
+              settingKey={overriddenKeys?.has('dimOpacity') ? 'dimOpacity' : 'dimLevel'}
+              isOverridden={!!(overriddenKeys?.has('dimLevel') || overriddenKeys?.has('dimOpacity'))}
+              onResetKey={(k) => {
+                if (!onResetOverrideKey) return;
+                onResetOverrideKey('dimLevel');
+                onResetOverrideKey('dimOpacity');
+              }}
+            />
           </div>
 
           <div className="p-3 rounded-lg bg-bg-primary space-y-2">
@@ -297,6 +328,11 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
                 ? 'לחיצה בזמן עמעום תאיר את המסך ותפעיל את התחנה או הכפתור מיד באותה נגיעה.'
                 : 'נגיעה ראשונה רק תעיר את המסך, והנגיעה השנייה תפעיל כפתורים (למניעת לחיצה בטעות).'}
             </p>
+            <OverrideHint
+              settingKey="dimWakeMode"
+              isOverridden={!!overriddenKeys?.has('dimWakeMode')}
+              onResetKey={onResetOverrideKey}
+            />
           </div>
         </>
       )}
@@ -356,6 +392,11 @@ const ScreenProtectionSettings: React.FC<ScreenProtectionSettingsProps> = ({
         <p className="text-[11px] text-text-secondary leading-snug">
           פועל רק כשאין ניגון פעיל: משחרר את שמירת המסך כדי שהמכשיר יכבה אותו אוטומטית.
         </p>
+        <OverrideHint
+          settingKey="emergencyTimeoutMinutes"
+          isOverridden={!!overriddenKeys?.has('emergencyTimeoutMinutes')}
+          onResetKey={onResetOverrideKey}
+        />
       </div>
     </div>
   );

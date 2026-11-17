@@ -8,7 +8,7 @@ import {
   deleteDoc
 } from 'firebase/firestore';
 import { auth, db } from './firebaseConfig';
-import { AllSettings, DIM_LEVELS, DEVICE_MODES } from '../types/settings';
+import { AllSettings, DIM_LEVELS, DEVICE_MODES, DETECTED_DEVICE_LABELS, DetectedDeviceType, DeviceProfile, DeviceTypeDefaults } from '../types/settings';
 import { defaultSettings } from '../store/initialSettings';
 import { Station } from '../types/station';
 
@@ -136,6 +136,42 @@ export const resetStationsInFirestore = async () => {
 
 export const normalizeSettings = (raw: any): AllSettings => {
   if (!raw) return defaultSettings;
+
+  const rawTypeDefaults = raw.deviceTypeDefaults || {};
+  const deviceTypeDefaults: DeviceTypeDefaults = {
+    mobile: { ...defaultSettings.deviceTypeDefaults.mobile, ...(rawTypeDefaults.mobile || {}) },
+    tablet: { ...defaultSettings.deviceTypeDefaults.tablet, ...(rawTypeDefaults.tablet || {}) },
+    desktop: { ...defaultSettings.deviceTypeDefaults.desktop, ...(rawTypeDefaults.desktop || {}) },
+  };
+
+  const normalizedProfiles: Record<string, DeviceProfile> = {};
+  if (raw.deviceProfiles && typeof raw.deviceProfiles === 'object') {
+    for (const [id, profile] of Object.entries(raw.deviceProfiles as Record<string, any>)) {
+      if (!profile || typeof profile !== 'object') continue;
+      const validType: DetectedDeviceType =
+        profile.deviceType === 'mobile' || profile.deviceType === 'tablet' || profile.deviceType === 'desktop'
+          ? profile.deviceType
+          : 'mobile';
+      const rawName = typeof profile.name === 'string' ? profile.name.trim() : '';
+      const isBrokenName = !rawName || /^(?:undefined|null)(?:[\s_-]*\d+)?$/i.test(rawName);
+      const normalizedCasingName = rawName.replace(/^WIN(10|11|8\.1|8|7)(_\d+)?$/, 'Win$1$2');
+      normalizedProfiles[id] = {
+        id: typeof profile.id === 'string' && profile.id ? profile.id : id,
+        name: isBrokenName ? (DETECTED_DEVICE_LABELS[validType] || 'מכשיר') : normalizedCasingName,
+        deviceType: validType,
+        signature: {
+          platform: typeof profile.signature?.platform === 'string' ? profile.signature.platform : 'unknown',
+          screenBucket: typeof profile.signature?.screenBucket === 'string' ? profile.signature.screenBucket : '0x0',
+          touchCapable: Boolean(profile.signature?.touchCapable),
+          userAgentFamily: typeof profile.signature?.userAgentFamily === 'string' ? profile.signature.userAgentFamily : 'Browser',
+        },
+        createdAt: typeof profile.createdAt === 'number' ? profile.createdAt : Date.now(),
+        lastSeenAt: typeof profile.lastSeenAt === 'number' ? profile.lastSeenAt : Date.now(),
+        overrides: profile.overrides && typeof profile.overrides === 'object' ? profile.overrides : {},
+      };
+    }
+  }
+
   return {
     ...defaultSettings,
     ...raw,
@@ -149,8 +185,13 @@ export const normalizeSettings = (raw: any): AllSettings => {
     dimWakeMode: raw.dimWakeMode === 'singleTap' || raw.dimWakeMode === 'doubleTap' ? raw.dimWakeMode : defaultSettings.dimWakeMode,
     emergencyTimeoutMinutes: typeof raw.emergencyTimeoutMinutes === 'number' && raw.emergencyTimeoutMinutes >= 0 ? raw.emergencyTimeoutMinutes : defaultSettings.emergencyTimeoutMinutes,
     deviceMode: DEVICE_MODES.includes(raw.deviceMode) ? raw.deviceMode : defaultSettings.deviceMode,
+    gridSize: typeof raw.gridSize === 'number' && raw.gridSize >= 0 && raw.gridSize <= 5 ? raw.gridSize : defaultSettings.gridSize,
     settingsSections: { ...defaultSettings.settingsSections, ...raw.settingsSections },
     keyMap: { ...defaultSettings.keyMap, ...raw.keyMap },
+    deviceTypeDefaults,
+    deviceProfiles: normalizedProfiles,
+    customAvatarUrl: typeof raw.customAvatarUrl === 'string' ? raw.customAvatarUrl : null,
+    customDisplayName: typeof raw.customDisplayName === 'string' && raw.customDisplayName.trim() ? raw.customDisplayName.trim() : null,
   };
 };
 

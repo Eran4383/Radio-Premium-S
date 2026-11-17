@@ -8,7 +8,7 @@ interface StationCardProps {
   isCurrentlyPlaying: boolean;
   isStreamActive: boolean;
   isStatusIndicatorEnabled: boolean;
-  cardContentClasses: { img: string; text: string; padding: string };
+  cardContentClasses: { img: string; text: string; padding: string; compact?: boolean };
   isFavorite: boolean;
   toggleFavorite: (uuid: string) => void;
   onSelectStation: (station: Station) => void;
@@ -32,6 +32,7 @@ const StationCard: React.FC<StationCardProps> = ({
   draggedUuid
 }) => {
   const isBeingDragged = draggedUuid === station.stationuuid;
+  const isCompact = Boolean(cardContentClasses.compact);
   const baseClasses = `relative rounded-lg flex flex-col items-center justify-center text-center transform transition-all duration-300 ease-in-out ${isDraggable ? 'cursor-grab' : 'cursor-pointer'}`;
   const stateClasses = isCurrentlyPlaying
       ? 'bg-accent/30 ring-2 ring-accent scale-105' 
@@ -48,7 +49,7 @@ const StationCard: React.FC<StationCardProps> = ({
     >
       {isStatusIndicatorEnabled && isCurrentlyPlaying && (
           <div 
-              className={`absolute top-2 left-2 w-2.5 h-2.5 rounded-full ring-2 ring-bg-secondary transition-colors ${
+              className={`absolute ${isCompact ? 'top-1.5 left-1.5 w-2 h-2' : 'top-2 left-2 w-2.5 h-2.5'} rounded-full ring-2 ring-bg-secondary transition-colors ${
                   isStreamActive ? 'bg-accent animate-pulse' : 'bg-text-secondary'
               }`}
               title={isStreamActive ? "התחנה משדרת" : "מתחבר..."}
@@ -57,19 +58,19 @@ const StationCard: React.FC<StationCardProps> = ({
       <img 
         src={station.favicon} 
         alt={station.name} 
-        className={`${cardContentClasses.img} rounded-md mb-2 bg-gray-700 object-contain pointer-events-none transition-all duration-300`}
+        className={`${cardContentClasses.img} rounded-md ${isCompact ? 'mb-1' : 'mb-2'} bg-gray-700 object-contain pointer-events-none transition-all duration-300`}
         onError={(e) => { e.currentTarget.src = 'https://picsum.photos/96'; }}
       />
-      <h4 className={`font-semibold pointer-events-none text-text-primary transition-all duration-300 flex items-center ${cardContentClasses.text}`}>{station.name}</h4>
+      <h4 className={`font-semibold pointer-events-none text-text-primary transition-all duration-300 flex items-center justify-center line-clamp-2 ${cardContentClasses.text}`}>{station.name}</h4>
       <button
         onClick={(e) => {
           e.stopPropagation();
           toggleFavorite(station.stationuuid);
         }}
-        className="absolute top-2 right-2 p-2 rounded-full bg-black/30 hover:bg-black/50 transition-colors"
+        className={`absolute ${isCompact ? 'top-1 right-1 p-1' : 'top-2 right-2 p-2'} rounded-full bg-black/30 hover:bg-black/50 transition-colors`}
         aria-label={isFavorite ? "הסר ממועדפים" : "הוסף למועדפים"}
       >
-        <StarIcon className={`w-5 h-5 ${isFavorite ? 'text-yellow-400' : 'text-text-secondary'}`} />
+        <StarIcon className={`${isCompact ? 'w-3.5 h-3.5' : 'w-5 h-5'} ${isFavorite ? 'text-yellow-400' : 'text-text-secondary'}`} />
       </button>
     </div>
   );

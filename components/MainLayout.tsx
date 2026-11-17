@@ -1,5 +1,19 @@
 import React from 'react';
-import { Station, StationFilter, SortOrder, User, AllSettings, StationTrackInfo, SettingsSections, GridSize, DetectedDeviceType } from '../types';
+import {
+  Station,
+  StationFilter,
+  SortOrder,
+  User,
+  AllSettings,
+  StationTrackInfo,
+  SettingsSections,
+  GridSize,
+  DetectedDeviceType,
+  DeviceProfile,
+  DeviceScopedSettingKey,
+  DeviceScopedSettings,
+  SettingsEditScope,
+} from '../types';
 import Player from './Player';
 import StationList from './StationList';
 import SettingsPanel from './SettingsPanel';
@@ -8,6 +22,8 @@ import ActionMenu from './ActionMenu';
 import AdminPanel from './AdminPanel';
 import StationListSkeleton from './StationListSkeleton';
 import MergeDataModal from './MergeDataModal';
+import DeviceRecoveryModal from './DeviceRecoveryModal';
+import ProfileAndDevicesModal from './ProfileAndDevicesModal';
 import ConfirmRemoveModal from './ConfirmRemoveModal';
 import DimOverlay from './DimOverlay';
 import { MenuIcon } from './Icons';
@@ -20,10 +36,22 @@ interface MainLayoutProps {
   onLogout: () => void;
   isAdminPanelOpen: boolean;
   setIsAdminPanelOpen: (open: boolean) => void;
-  
-  // Settings
+
+  // Settings (active resolved settings for runtime + editScope resolved settings for panel)
   allSettings: AllSettings;
+  editingSettings: DeviceScopedSettings;
+  editingEffectiveDevice: DetectedDeviceType;
+  overriddenKeys: Set<DeviceScopedSettingKey>;
+  editScope: SettingsEditScope;
+  onEditScopeChange: (scope: SettingsEditScope) => void;
+  activeDeviceId: string | null;
   setAllSettings: React.Dispatch<React.SetStateAction<AllSettings>>;
+  onUpdateScopedSettings: (partial: Partial<DeviceScopedSettings>) => void;
+  onResetOverrideKey: (key: DeviceScopedSettingKey) => void;
+  onResetAllOverrides: (deviceId: string) => void;
+  onRenameDevice: (deviceId: string, newName: string) => void;
+  onDeleteDevice: (deviceId: string) => void;
+  onSwitchActiveDevice: (deviceId: string) => void;
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
   handleToggleSettingsSection: (section: keyof SettingsSections) => void;
@@ -31,7 +59,7 @@ interface MainLayoutProps {
   updateStatus: any;
   isRebinding: boolean;
   setIsRebinding: (rebinding: boolean) => void;
-  
+
   // Stations
   stations: Station[];
   displayedStations: Station[];
@@ -42,7 +70,7 @@ interface MainLayoutProps {
   toggleFavorite: (uuid: string) => void;
   handleReorder: (uuids: string[]) => void;
   handleAdminUpdate: (stations: Station[]) => void;
-  
+
   // Player
   playerState: any;
   handlePlayerEvent: (event: any) => void;
@@ -55,7 +83,7 @@ interface MainLayoutProps {
   frequencyData: Uint8Array;
   setFrequencyData: (data: Uint8Array) => void;
   trackInfo: StationTrackInfo | null;
-  
+
   // UI State
   isNowPlayingOpen: boolean;
   setIsNowPlayingOpen: (open: boolean) => void;
@@ -64,20 +92,23 @@ interface MainLayoutProps {
   actionMenuState: { isOpen: boolean; songTitle: string | null };
   closeActionMenu: () => void;
   openActionMenu: (title: string) => void;
-  
+
   // Modals
   mergeModal: { isOpen: boolean; onMerge: () => void; onDiscardLocal: () => void };
+  deviceRecoveryModal: { isOpen: boolean; candidates: { profile: DeviceProfile; score: number }[]; suggestedName: string };
+  onConfirmRecoveryProfile: (profileId: string) => void;
+  onCreateNewRecoveryProfile: (name: string) => void;
   pendingRemoval: { uuid: string; name: string } | null;
   confirmRemoval: () => void;
   cancelRemoval: () => void;
-  
+
   // Sorting & Filtering
   currentSortOrder: SortOrder;
   setSortOrder: (order: SortOrder) => void;
   handleCategorySortClick: () => void;
   categoryButtonLabel: string;
   currentCategoryIndex: number;
-  
+
   // Touch Handlers
   handleTouchStart: (e: React.TouchEvent) => void;
   handleTouchMove: (e: React.TouchEvent) => void;
@@ -103,19 +134,24 @@ const SortButton: React.FC<{ label: string; order: SortOrder; currentOrder: Sort
 const MainLayout: React.FC<MainLayoutProps> = (props) => {
   const {
     user, isAdmin, onLogin, onLogout, isAdminPanelOpen, setIsAdminPanelOpen,
-    allSettings, setAllSettings, isSettingsOpen, setIsSettingsOpen, handleToggleSettingsSection,
+    allSettings, editingSettings, editingEffectiveDevice, overriddenKeys, editScope, onEditScopeChange, activeDeviceId,
+    setAllSettings, onUpdateScopedSettings, onResetOverrideKey, onResetAllOverrides, onRenameDevice, onDeleteDevice, onSwitchActiveDevice,
+    isSettingsOpen, setIsSettingsOpen, handleToggleSettingsSection,
     handleManualUpdateCheck, updateStatus, isRebinding, setIsRebinding,
     stations, displayedStations, stationsStatus, error, handleSelectStation, isFavorite, toggleFavorite, handleReorder, handleAdminUpdate,
     playerState, handlePlayerEvent, handlePlayPause, handlePlay, handlePause, handleNext, handlePrev, handleVolumeChange,
     frequencyData, setFrequencyData, trackInfo,
     isNowPlayingOpen, setIsNowPlayingOpen, isVisualizerFullscreen, setIsVisualizerFullscreen,
     actionMenuState, closeActionMenu, openActionMenu,
-    mergeModal, pendingRemoval, confirmRemoval, cancelRemoval,
+    mergeModal, deviceRecoveryModal, onConfirmRecoveryProfile, onCreateNewRecoveryProfile, pendingRemoval, confirmRemoval, cancelRemoval,
     currentSortOrder, setSortOrder, handleCategorySortClick, categoryButtonLabel, currentCategoryIndex,
     handleTouchStart, handleTouchMove, handleTouchEnd,
     isDimmed, isPreviewingDim, isSliderPreviewing, wakeFromDim, toggleDimPreview, stopDimPreview, startSliderPreview, endSliderPreview,
     detectedDevice, effectiveDevice
   } = props;
+
+  const [isProfileModalOpen, setIsProfileModalOpen] = React.useState(false);
+  const isOverlayPreviewing = isPreviewingDim || isSliderPreviewing;
 
   return (
     <div className="min-h-screen bg-bg-primary text-text-primary flex flex-col overflow-x-clip">
@@ -123,13 +159,39 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         isDimmed={isDimmed}
         isPreviewing={isPreviewingDim}
         isSliderPreviewing={isSliderPreviewing}
-        dimLevel={allSettings.dimLevel}
-        dimOpacity={allSettings.dimOpacity}
+        dimLevel={isOverlayPreviewing ? editingSettings.dimLevel : allSettings.dimLevel}
+        dimOpacity={isOverlayPreviewing ? editingSettings.dimOpacity : allSettings.dimOpacity}
         dimWakeMode={allSettings.dimWakeMode}
         onWake={wakeFromDim}
         onStopPreview={stopDimPreview}
       />
       <MergeDataModal {...mergeModal} />
+      <DeviceRecoveryModal
+        isOpen={deviceRecoveryModal.isOpen}
+        candidates={deviceRecoveryModal.candidates}
+        suggestedName={deviceRecoveryModal.suggestedName}
+        onSelectProfile={onConfirmRecoveryProfile}
+        onCreateNew={onCreateNewRecoveryProfile}
+      />
+      <ProfileAndDevicesModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        user={user}
+        customAvatarUrl={allSettings.customAvatarUrl}
+        customDisplayName={allSettings.customDisplayName}
+        onUpdateProfileInfo={(updates) => setAllSettings((s) => ({ ...s, ...updates }))}
+        onLogin={onLogin}
+        onLogout={onLogout}
+        activeDeviceId={activeDeviceId}
+        deviceProfiles={allSettings.deviceProfiles}
+        onRenameDevice={onRenameDevice}
+        onDeleteDevice={onDeleteDevice}
+        onSwitchActiveDevice={onSwitchActiveDevice}
+        onEditRemoteDevice={(deviceId) => {
+          onEditScopeChange({ kind: 'device', deviceId });
+          setIsSettingsOpen(true);
+        }}
+      />
       <ConfirmRemoveModal 
         isOpen={!!pendingRemoval}
         stationName={pendingRemoval?.name || ''}
@@ -175,61 +237,71 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
         user={user} 
+        customAvatarUrl={allSettings.customAvatarUrl}
+        customDisplayName={allSettings.customDisplayName}
+        onOpenProfileModal={() => setIsProfileModalOpen(true)}
         isAdmin={isAdmin}
         onOpenAdminPanel={() => setIsAdminPanelOpen(true)}
         onLogin={onLogin} 
         onLogout={onLogout} 
         currentTheme={allSettings.theme} 
-        onThemeChange={(v) => setAllSettings(s=>({...s, theme: v}))} 
-        currentEqPreset={allSettings.eqPreset} 
-        onEqPresetChange={(v) => setAllSettings(s=>({...s, eqPreset: v}))} 
-        isNowPlayingVisualizerEnabled={allSettings.isNowPlayingVisualizerEnabled} 
-        onNowPlayingVisualizerEnabledChange={(v) => setAllSettings(s=>({...s, isNowPlayingVisualizerEnabled: v}))} 
-        isPlayerBarVisualizerEnabled={allSettings.isPlayerBarVisualizerEnabled} 
-        onPlayerBarVisualizerEnabledChange={(v) => setAllSettings(s=>({...s, isPlayerBarVisualizerEnabled: v}))} 
-        isStatusIndicatorEnabled={allSettings.isStatusIndicatorEnabled} 
-        onStatusIndicatorEnabledChange={(v) => setAllSettings(s=>({...s, isStatusIndicatorEnabled: v}))} 
-        isVolumeControlVisible={allSettings.isVolumeControlVisible} 
-        onVolumeControlVisibleChange={(v) => setAllSettings(s=>({...s, isVolumeControlVisible: v}))} 
-        showNextSong={allSettings.showNextSong} 
-        onShowNextSongChange={(v) => setAllSettings(s=>({...s, showNextSong: v}))} 
-        isWakeLockEnabled={allSettings.isWakeLockEnabled}
-        onWakeLockEnabledChange={(v) => setAllSettings(s=>({...s, isWakeLockEnabled: v}))}
-        isPixelShiftEnabled={allSettings.isPixelShiftEnabled}
-        onPixelShiftEnabledChange={(v) => setAllSettings(s=>({...s, isPixelShiftEnabled: v}))}
-        autoDimSeconds={allSettings.autoDimSeconds}
-        onAutoDimSecondsChange={(v) => setAllSettings(s=>({...s, autoDimSeconds: v}))}
-        dimLevel={allSettings.dimLevel}
-        dimOpacity={allSettings.dimOpacity}
-        onDimPresetSelect={(level, opacity) => setAllSettings(s => ({ ...s, dimLevel: level, dimOpacity: opacity }))}
-        onDimOpacityChange={(opacity) => setAllSettings(s => ({ ...s, dimOpacity: opacity, dimLevel: s.dimLevel === 'warm' ? 'warm' : 'custom' }))}
+        onThemeChange={(v) => setAllSettings(s=>({...s, theme: v}))}
+        editScope={editScope}
+        onEditScopeChange={onEditScopeChange}
+        activeDeviceId={activeDeviceId}
+        deviceProfiles={allSettings.deviceProfiles}
+        overriddenKeys={overriddenKeys}
+        onResetOverrideKey={onResetOverrideKey}
+        onResetAllOverrides={onResetAllOverrides}
+        currentEqPreset={editingSettings.eqPreset} 
+        onEqPresetChange={(v) => onUpdateScopedSettings({ eqPreset: v })} 
+        isNowPlayingVisualizerEnabled={editingSettings.isNowPlayingVisualizerEnabled} 
+        onNowPlayingVisualizerEnabledChange={(v) => onUpdateScopedSettings({ isNowPlayingVisualizerEnabled: v })} 
+        isPlayerBarVisualizerEnabled={editingSettings.isPlayerBarVisualizerEnabled} 
+        onPlayerBarVisualizerEnabledChange={(v) => onUpdateScopedSettings({ isPlayerBarVisualizerEnabled: v })} 
+        isStatusIndicatorEnabled={editingSettings.isStatusIndicatorEnabled} 
+        onStatusIndicatorEnabledChange={(v) => onUpdateScopedSettings({ isStatusIndicatorEnabled: v })} 
+        isVolumeControlVisible={editingSettings.isVolumeControlVisible} 
+        onVolumeControlVisibleChange={(v) => onUpdateScopedSettings({ isVolumeControlVisible: v })} 
+        showNextSong={editingSettings.showNextSong} 
+        onShowNextSongChange={(v) => onUpdateScopedSettings({ showNextSong: v })} 
+        isWakeLockEnabled={editingSettings.isWakeLockEnabled}
+        onWakeLockEnabledChange={(v) => onUpdateScopedSettings({ isWakeLockEnabled: v })}
+        isPixelShiftEnabled={editingSettings.isPixelShiftEnabled}
+        onPixelShiftEnabledChange={(v) => onUpdateScopedSettings({ isPixelShiftEnabled: v })}
+        autoDimSeconds={editingSettings.autoDimSeconds}
+        onAutoDimSecondsChange={(v) => onUpdateScopedSettings({ autoDimSeconds: v })}
+        dimLevel={editingSettings.dimLevel}
+        dimOpacity={editingSettings.dimOpacity}
+        onDimPresetSelect={(level, opacity) => onUpdateScopedSettings({ dimLevel: level, dimOpacity: opacity })}
+        onDimOpacityChange={(opacity) => onUpdateScopedSettings({ dimOpacity: opacity, dimLevel: editingSettings.dimLevel === 'warm' ? 'warm' : 'custom' })}
         isPreviewingDim={isPreviewingDim}
         onTogglePreviewDim={toggleDimPreview}
         onStopPreviewDim={stopDimPreview}
         onSliderPreviewStart={startSliderPreview}
         onSliderPreviewEnd={endSliderPreview}
-        dimWakeMode={allSettings.dimWakeMode}
-        onDimWakeModeChange={(v) => setAllSettings(s=>({...s, dimWakeMode: v}))}
-        emergencyTimeoutMinutes={allSettings.emergencyTimeoutMinutes}
-        onEmergencyTimeoutMinutesChange={(v) => setAllSettings(s=>({...s, emergencyTimeoutMinutes: v}))}
-        customEqSettings={allSettings.customEqSettings} 
-        onCustomEqChange={(v) => setAllSettings(s=>({...s, customEqSettings: v}))} 
-        deviceMode={allSettings.deviceMode}
-        onDeviceModeChange={(v) => setAllSettings(s => ({ ...s, deviceMode: v }))}
+        dimWakeMode={editingSettings.dimWakeMode}
+        onDimWakeModeChange={(v) => onUpdateScopedSettings({ dimWakeMode: v })}
+        emergencyTimeoutMinutes={editingSettings.emergencyTimeoutMinutes}
+        onEmergencyTimeoutMinutesChange={(v) => onUpdateScopedSettings({ emergencyTimeoutMinutes: v })}
+        customEqSettings={editingSettings.customEqSettings} 
+        onCustomEqChange={(v) => onUpdateScopedSettings({ customEqSettings: v })} 
+        deviceMode={editingSettings.deviceMode}
+        onDeviceModeChange={(v) => onUpdateScopedSettings({ deviceMode: v })}
         detectedDevice={detectedDevice}
-        effectiveDevice={effectiveDevice}
-        gridSize={allSettings.gridSize} 
-        onGridSizeChange={(v) => setAllSettings(s=>({...s, gridSize: v}))} 
-        isMarqueeProgramEnabled={allSettings.isMarqueeProgramEnabled} 
-        onMarqueeProgramEnabledChange={(v) => setAllSettings(s=>({...s, isMarqueeProgramEnabled: v}))} 
-        isMarqueeCurrentTrackEnabled={allSettings.isMarqueeCurrentTrackEnabled} 
-        onMarqueeCurrentTrackEnabledChange={(v) => setAllSettings(s=>({...s, isMarqueeCurrentTrackEnabled: v}))} 
-        isMarqueeNextTrackEnabled={allSettings.isMarqueeNextTrackEnabled} 
-        onMarqueeNextTrackEnabledChange={(v) => setAllSettings(s=>({...s, isMarqueeNextTrackEnabled: v}))} 
-        marqueeSpeed={allSettings.marqueeSpeed} 
-        onMarqueeSpeedChange={(v) => setAllSettings(s=>({...s, marqueeSpeed: v}))} 
-        marqueeDelay={allSettings.marqueeDelay} 
-        onMarqueeDelayChange={(v) => setAllSettings(s=>({...s, marqueeDelay: v}))} 
+        effectiveDevice={editingEffectiveDevice}
+        gridSize={editingSettings.gridSize} 
+        onGridSizeChange={(v) => onUpdateScopedSettings({ gridSize: v })} 
+        isMarqueeProgramEnabled={editingSettings.isMarqueeProgramEnabled} 
+        onMarqueeProgramEnabledChange={(v) => onUpdateScopedSettings({ isMarqueeProgramEnabled: v })} 
+        isMarqueeCurrentTrackEnabled={editingSettings.isMarqueeCurrentTrackEnabled} 
+        onMarqueeCurrentTrackEnabledChange={(v) => onUpdateScopedSettings({ isMarqueeCurrentTrackEnabled: v })} 
+        isMarqueeNextTrackEnabled={editingSettings.isMarqueeNextTrackEnabled} 
+        onMarqueeNextTrackEnabledChange={(v) => onUpdateScopedSettings({ isMarqueeNextTrackEnabled: v })} 
+        marqueeSpeed={editingSettings.marqueeSpeed} 
+        onMarqueeSpeedChange={(v) => onUpdateScopedSettings({ marqueeSpeed: v })} 
+        marqueeDelay={editingSettings.marqueeDelay} 
+        onMarqueeDelayChange={(v) => onUpdateScopedSettings({ marqueeDelay: v })} 
         updateStatus={updateStatus} 
         onManualUpdateCheck={handleManualUpdateCheck} 
         keyMap={allSettings.keyMap} 
@@ -253,7 +325,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         frequencyData={frequencyData} 
         isVisualizerEnabled={allSettings.isNowPlayingVisualizerEnabled} 
         visualizerStyle={allSettings.visualizerStyle} 
-        onCycleVisualizerStyle={() => setAllSettings(s=>({...s, visualizerStyle: (s.visualizerStyle === 'bars' ? 'wave' : 'bars')}))} 
+        onCycleVisualizerStyle={() => onUpdateScopedSettings({ visualizerStyle: (allSettings.visualizerStyle === 'bars' ? 'wave' : 'bars') })} 
         isVolumeControlVisible={allSettings.isVolumeControlVisible}
         marqueeDelay={allSettings.marqueeDelay} 
         isMarqueeProgramEnabled={allSettings.isMarqueeProgramEnabled} 
