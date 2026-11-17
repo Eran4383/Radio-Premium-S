@@ -146,14 +146,96 @@ const parseAndroidModelFromUA = (ua: string): string | null => {
   return rawModel.slice(0, 28);
 };
 
+export const normalizeAndroidModelName = (
+  rawModel: string,
+  deviceType: DetectedDeviceType
+): string => {
+  const osFallback = deviceType === 'tablet' ? 'Android Tab' : 'Android';
+  const clean = (rawModel || '').trim().replace(/\bwv\b/gi, '').replace(/\s+/g, ' ').trim();
+
+  if (
+    !clean ||
+    clean.length < 2 ||
+    clean === 'K' ||
+    /^(?:undefined|null|Android)$/i.test(clean)
+  ) {
+    return osFallback;
+  }
+
+  // Known Xiaomi / Poco X3 family codes
+  if (/^M2007J20/i.test(clean)) return 'Poco X3';
+  if (/^M2102J20/i.test(clean)) return 'Poco X3 Pro';
+
+  // Friendly brand prefixes
+  if (/^POCO\b/i.test(clean)) {
+    const normalized = clean.replace(/^POCO\b/i, 'Poco');
+    return /^Poco\s+[A-Z0-9-]{6,}$/i.test(normalized) ? 'Poco' : normalized.slice(0, 24);
+  }
+  if (/^Redmi\b/i.test(clean)) return clean.slice(0, 24);
+  if (/^(?:Xiaomi|Mi)\b/i.test(clean)) return clean.slice(0, 24);
+  if (/^Samsung\s+Galaxy/i.test(clean)) return clean.replace(/^Samsung\s+/i, '').slice(0, 24);
+  if (/^Galaxy\b/i.test(clean)) return clean.slice(0, 24);
+  if (/^Pixel\b/i.test(clean)) return clean.slice(0, 24);
+  if (/^moto\b/i.test(clean)) return clean.replace(/^moto\b/i, 'Moto').slice(0, 24);
+  if (/^Motorola\b/i.test(clean)) return clean.slice(0, 24);
+  if (/^Realme\b/i.test(clean)) return clean.slice(0, 24);
+  if (/^OnePlus\b/i.test(clean)) {
+    return /^OnePlus\s+[A-Z]?\d{4,}$/i.test(clean) ? 'OnePlus' : clean.slice(0, 24);
+  }
+
+  // Samsung model codes (SM-S918B, SM-A546E, SM-T870, GT-..., etc.)
+  if (/^SM-[TX]/i.test(clean)) return 'Galaxy Tab';
+  if (/^(?:SM-|SC-|SGH-|GT-|SCH-|SHV-)/i.test(clean)) return 'Galaxy';
+
+  // Xiaomi / Poco / Redmi numeric-alphanumeric SKU codes (e.g. M2012K11AG, 2201116PG)
+  if (/^(?:M\d{4}[A-Z0-9]{3,8}|\d{7,8}[A-Z]{1,3})$/i.test(clean)) {
+    if (/P[A-Z]?$/i.test(clean)) return 'Poco';
+    return 'Xiaomi';
+  }
+
+  // Other well-known manufacturer SKU prefixes
+  if (/^(?:LE2\d|IN20|KB20|DN21|NE22|GM19|HD19|AC20|BE20|DE21|MT21)/i.test(clean)) return 'OnePlus';
+  if (/^RMX\d+/i.test(clean)) return 'Realme';
+  if (/^CPH\d+/i.test(clean)) return 'Oppo';
+  if (/^XT\d+/i.test(clean)) return 'Motorola';
+  if (/^LM-[A-Z0-9]+/i.test(clean)) return 'LG';
+  if (/^XQ-[A-Z0-9]+/i.test(clean)) return 'Sony';
+
+  // If it's a single cryptic hardware token (no spaces, mix of letters & digits or dashes), use OS name
+  if (!clean.includes(' ') && /(?=.*\d)(?=.*[A-Za-z])/.test(clean)) {
+    return osFallback;
+  }
+  if (/^[A-Z0-9]+-[A-Z0-9]+$/i.test(clean)) {
+    return osFallback;
+  }
+
+  return clean.slice(0, 24);
+};
+
 export const isBrokenOrLegacyDeviceName = (name: string): boolean => {
   const trimmed = (name || '').trim();
-  return (
+  if (
     !trimmed ||
     /^undefined(?:[\s_-]*\d+)?$/i.test(trimmed) ||
     /^null(?:[\s_-]*\d+)?$/i.test(trimmed) ||
     /^(טלפון|טאבלט|מחשב)(?:\s+\d+)?$/.test(trimmed)
-  );
+  ) {
+    return true;
+  }
+  // Ignore deduplication suffix like _1 when checking for cryptic hardware codes
+  const withoutSuffix = trimmed.replace(/_\d+$/, '');
+  if (/^Win(?:7|8|8\.1|10|11)$/i.test(withoutSuffix)) return false;
+  if (/^(?:iPhone|iPad|Mac|Android|Linux|Windows|Chromebook|Galaxy|Poco|Xiaomi|Redmi|Pixel|OnePlus|Realme|Oppo|Vivo|Motorola|Moto|LG|Sony|Asus)(?:\s|$)/i.test(withoutSuffix)) {
+    return false;
+  }
+  // Cryptic all-uppercase/numeric SKU codes (e.g., M2007J20CG, SM-S918B, 2201116PG, CPH2449, XQ-CT54)
+  if (
+    /^(?:SM-|SC-|SGH-|GT-|SCH-|SHV-|RMX\d|CPH\d|XT\d|LM-|XQ-|ASUS_)/i.test(withoutSuffix) ||
+    (!withoutSuffix.includes(' ') && /^[A-Z0-9._-]+$/.test(withoutSuffix) && /(?=.*\d)(?=.*[A-Z])/.test(withoutSuffix))
+  ) {
+    return true;
+  }
+  return false;
 };
 
 export const detectFriendlyDeviceModelSync = (deviceType: DetectedDeviceType): string => {
@@ -169,8 +251,8 @@ export const detectFriendlyDeviceModelSync = (deviceType: DetectedDeviceType): s
 
   if (/Android/i.test(ua)) {
     const parsedModel = parseAndroidModelFromUA(ua);
-    if (parsedModel) return parsedModel;
-    return deviceType === 'tablet' ? 'Android Tablet' : 'Android';
+    if (parsedModel) return normalizeAndroidModelName(parsedModel, deviceType);
+    return deviceType === 'tablet' ? 'Android Tab' : 'Android';
   }
 
   if (/Windows NT 10\.0/i.test(ua)) return 'Win10';
@@ -212,12 +294,16 @@ export const detectFriendlyDeviceModelAsync = async (
       model !== 'K' &&
       !/^(undefined|null)$/i.test(model)
     ) {
+      if (/Android/i.test(platform) || /Android/i.test(navigator.userAgent || '') || deviceType !== 'desktop') {
+        return normalizeAndroidModelName(model, deviceType);
+      }
       return model.slice(0, 28);
     }
     if (/Windows/i.test(platform) && !isNaN(platformMajor) && platformMajor > 0) {
       return platformMajor >= 13 ? 'Win11' : 'Win10';
     }
     if (/Windows/i.test(platform)) return syncGuess.startsWith('Win') ? syncGuess : 'Win10';
+    if (/Android/i.test(platform)) return deviceType === 'tablet' ? 'Android Tab' : 'Android';
     if (/macOS/i.test(platform)) return 'Mac';
     if (/Chrome OS/i.test(platform)) return 'Chromebook';
   } catch {
