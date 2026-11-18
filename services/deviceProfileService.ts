@@ -374,13 +374,37 @@ export const collectDeviceSignature = (): DeviceSignature => {
   };
 };
 
+export const isCompatibleDeviceProfile = (
+  profile: DeviceProfile,
+  currentType: DetectedDeviceType,
+  currentSig: DeviceSignature
+): boolean => {
+  if (profile.deviceType !== currentType) {
+    return false;
+  }
+  const profileFamily = profile.signature?.userAgentFamily;
+  const currentFamily = currentSig.userAgentFamily;
+  if (
+    profileFamily &&
+    currentFamily &&
+    profileFamily !== 'Browser' &&
+    currentFamily !== 'Browser' &&
+    profileFamily !== currentFamily
+  ) {
+    return false;
+  }
+  return true;
+};
+
 export const scoreProfileMatch = (
   profile: DeviceProfile,
   currentType: DetectedDeviceType,
   currentSig: DeviceSignature
 ): number => {
-  let score = 0;
-  if (profile.deviceType === currentType) score += 50;
+  if (!isCompatibleDeviceProfile(profile, currentType, currentSig)) {
+    return 0;
+  }
+  let score = 50; // Same deviceType
   if (profile.signature?.userAgentFamily === currentSig.userAgentFamily) score += 25;
   if (profile.signature?.touchCapable === currentSig.touchCapable) score += 10;
   if (profile.signature?.platform === currentSig.platform) score += 10;
@@ -394,6 +418,7 @@ export const rankRecoveryCandidates = (
   currentSig: DeviceSignature
 ): { profile: DeviceProfile; score: number }[] => {
   return Object.values(profiles)
+    .filter((profile) => isCompatibleDeviceProfile(profile, currentType, currentSig))
     .map((profile) => ({
       profile,
       score: scoreProfileMatch(profile, currentType, currentSig),

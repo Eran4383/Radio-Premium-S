@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   AllSettings,
+  DETECTED_DEVICE_LABELS,
   DetectedDeviceType,
   DeviceProfile,
   DeviceScopedSettingKey,
@@ -28,6 +29,7 @@ import {
   generateDeviceId,
   getStoredDeviceIdSync,
   isBrokenOrLegacyDeviceName,
+  isCompatibleDeviceProfile,
   persistActiveDeviceId,
   rankRecoveryCandidates,
   recoverDeviceIdFromIndexedDB,
@@ -39,6 +41,7 @@ export interface DeviceRecoveryModalState {
   isOpen: boolean;
   candidates: { profile: DeviceProfile; score: number }[];
   suggestedName: string;
+  detectedLabel: string;
 }
 
 export const useSettings = (
@@ -60,6 +63,7 @@ export const useSettings = (
     isOpen: false,
     candidates: [],
     suggestedName: '',
+    detectedLabel: '',
   });
 
   const settingsRef = useRef(allSettings);
@@ -80,7 +84,7 @@ export const useSettings = (
       lastSyncedSettingsJsonRef.current = null;
       isCloudWriteBlockedRef.current = false;
       recoveryPromptedForUidRef.current = null;
-      setDeviceRecoveryModal({ isOpen: false, candidates: [], suggestedName: '' });
+      setDeviceRecoveryModal({ isOpen: false, candidates: [], suggestedName: '', detectedLabel: '' });
     }
   }, [user]);
 
@@ -204,15 +208,16 @@ export const useSettings = (
         if (cancelled) return;
 
         const profiles = settingsRef.current.deviceProfiles || {};
+        const currentSig = collectDeviceSignature();
+        const existing = candidateId ? profiles[candidateId] : undefined;
 
-        if (candidateId && profiles[candidateId]) {
+        if (candidateId && existing && isCompatibleDeviceProfile(existing, detectedDevice, currentSig)) {
           if (activeDeviceId !== candidateId) {
             setActiveDeviceId(candidateId);
           }
           await persistActiveDeviceId(candidateId);
           if (cancelled) return;
 
-          const existing = profiles[candidateId];
           const now = Date.now();
           const isStale = now - (existing.lastSeenAt || 0) > 600_000;
           const needsNameUpgrade = isBrokenOrLegacyDeviceName(existing.name);
@@ -222,7 +227,6 @@ export const useSettings = (
           if (cancelled) return;
 
           if (isStale || existing.deviceType !== detectedDevice || (upgradedModelName && upgradedModelName !== existing.name)) {
-            const currentSig = collectDeviceSignature();
             setAllSettings(prev => {
               const target = prev.deviceProfiles?.[candidateId!];
               if (!target) return prev;
@@ -248,26 +252,30 @@ export const useSettings = (
           return;
         }
 
-        // Missing or unknown local deviceId:
+        // Missing, unknown, or incompatible local deviceId:
         const detectedModel = await detectFriendlyDeviceModelAsync(detectedDevice);
         if (cancelled) return;
 
-        const hasCloudProfiles = Object.keys(profiles).length > 0;
-        if (user && hasCloudProfiles && recoveryPromptedForUidRef.current !== user.uid) {
+        const ranked = rankRecoveryCandidates(profiles, detectedDevice, currentSig);
+        const typeLabel = DETECTED_DEVICE_LABELS[detectedDevice];
+        const detectedLabel =
+          detectedModel && detectedModel !== typeLabel
+            ? `${typeLabel} · ${detectedModel}`
+            : typeLabel;
+
+        if (user && ranked.length > 0 && recoveryPromptedForUidRef.current !== user.uid) {
           recoveryPromptedForUidRef.current = user.uid;
-          const sig = collectDeviceSignature();
-          const ranked = rankRecoveryCandidates(profiles, detectedDevice, sig);
           setDeviceRecoveryModal({
             isOpen: true,
             candidates: ranked,
             suggestedName: createDefaultDeviceName(detectedDevice, profiles, detectedModel),
+            detectedLabel,
           });
           return;
         }
 
-        // First device ever or offline/guest mode: auto-register profile cleanly
-        const newId = candidateId || generateDeviceId();
-        const sig = collectDeviceSignature();
+        // First device of this type/OS or offline/guest mode: auto-register profile cleanly
+        const newId = !candidateId || profiles[candidateId] ? generateDeviceId() : candidateId;
         const now = Date.now();
         await persistActiveDeviceId(newId);
         if (cancelled) return;
@@ -281,7 +289,7 @@ export const useSettings = (
             id: newId,
             name: createDefaultDeviceName(detectedDevice, prevProfiles, detectedModel),
             deviceType: detectedDevice,
-            signature: sig,
+            signature: currentSig,
             createdAt: now,
             lastSeenAt: now,
             overrides: isFirstProfileEver ? extractCustomOverridesForMigration(prev) : {},
@@ -316,18 +324,23 @@ export const useSettings = (
 
   const confirmRecoveryProfile = useCallback(async (profileId: string) => {
     const sig = collectDeviceSignature();
+    const target = settingsRef.current.deviceProfiles?.[profileId];
+    if (!target || !isCompatibleDeviceProfile(target, detectedDevice, sig)) {
+      setDeviceRecoveryModal({ isOpen: false, candidates: [], suggestedName: '', detectedLabel: '' });
+      return;
+    }
     const now = Date.now();
     await persistActiveDeviceId(profileId);
     setActiveDeviceId(profileId);
     setAllSettings(prev => {
-      const target = prev.deviceProfiles?.[profileId];
-      if (!target) return prev;
+      const currentTarget = prev.deviceProfiles?.[profileId];
+      if (!currentTarget) return prev;
       return {
         ...prev,
         deviceProfiles: {
           ...prev.deviceProfiles,
           [profileId]: {
-            ...target,
+            ...currentTarget,
             deviceType: detectedDevice,
             signature: sig,
             lastSeenAt: now,
@@ -335,7 +348,7 @@ export const useSettings = (
         },
       };
     });
-    setDeviceRecoveryModal({ isOpen: false, candidates: [], suggestedName: '' });
+    setDeviceRecoveryModal({ isOpen: false, candidates: [], suggestedName: '', detectedLabel: '' });
   }, [detectedDevice]);
 
   const createNewRecoveryProfile = useCallback(async (customName: string) => {
@@ -364,7 +377,7 @@ export const useSettings = (
         },
       };
     });
-    setDeviceRecoveryModal({ isOpen: false, candidates: [], suggestedName: '' });
+    setDeviceRecoveryModal({ isOpen: false, candidates: [], suggestedName: '', detectedLabel: '' });
   }, [detectedDevice]);
 
   // Persistence

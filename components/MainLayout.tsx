@@ -95,7 +95,7 @@ interface MainLayoutProps {
 
   // Modals
   mergeModal: { isOpen: boolean; onMerge: () => void; onDiscardLocal: () => void };
-  deviceRecoveryModal: { isOpen: boolean; candidates: { profile: DeviceProfile; score: number }[]; suggestedName: string };
+  deviceRecoveryModal: { isOpen: boolean; candidates: { profile: DeviceProfile; score: number }[]; suggestedName: string; detectedLabel?: string };
   onConfirmRecoveryProfile: (profileId: string) => void;
   onCreateNewRecoveryProfile: (name: string) => void;
   pendingRemoval: { uuid: string; name: string } | null;
@@ -170,6 +170,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         isOpen={deviceRecoveryModal.isOpen}
         candidates={deviceRecoveryModal.candidates}
         suggestedName={deviceRecoveryModal.suggestedName}
+        detectedLabel={deviceRecoveryModal.detectedLabel}
         onSelectProfile={onConfirmRecoveryProfile}
         onCreateNew={onCreateNewRecoveryProfile}
       />
@@ -183,6 +184,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
         onLogin={onLogin}
         onLogout={onLogout}
         activeDeviceId={activeDeviceId}
+        detectedDevice={detectedDevice}
         deviceProfiles={allSettings.deviceProfiles}
         onRenameDevice={onRenameDevice}
         onDeleteDevice={onDeleteDevice}

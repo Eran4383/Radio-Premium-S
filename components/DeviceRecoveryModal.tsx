@@ -6,6 +6,7 @@ interface DeviceRecoveryModalProps {
   isOpen: boolean;
   candidates: { profile: DeviceProfile; score: number }[];
   suggestedName: string;
+  detectedLabel?: string;
   onSelectProfile: (profileId: string) => void;
   onCreateNew: (name: string) => void;
 }
@@ -14,6 +15,7 @@ const DeviceRecoveryModal: React.FC<DeviceRecoveryModalProps> = ({
   isOpen,
   candidates,
   suggestedName,
+  detectedLabel,
   onSelectProfile,
   onCreateNew,
 }) => {
@@ -45,8 +47,14 @@ const DeviceRecoveryModal: React.FC<DeviceRecoveryModalProps> = ({
             זיהוי פרופיל מכשיר
           </h2>
           <p className="text-sm text-text-secondary leading-relaxed">
-            נראה שזו כניסה חדשה מדפדפן זה (או לאחר איפוס). בחר לאיזה מכשיר שמור לשייך אותו כדי לשחזר את הגדרות האקולייזר והמסך שלך.
+            נראה שזו כניסה חדשה מדפדפן זה (או לאחר איפוס). בחר לאיזה מכשיר שמור מאותו סוג לשייך אותו כדי לשחזר את הגדרות האקולייזר והמסך שלך.
           </p>
+          {detectedLabel && (
+            <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-primary border border-gray-700/60 text-xs text-text-secondary">
+              <span>מכשיר נוכחי זוהה כ:</span>
+              <span className="font-semibold text-text-primary">{detectedLabel}</span>
+            </div>
+          )}
         </div>
 
         {topCandidate && (

@@ -1,10 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   DETECTED_DEVICE_LABELS,
+  DetectedDeviceType,
   DeviceProfile,
   User,
 } from '../types';
-import { formatRelativeTimeHe } from '../services/deviceProfileService';
+import {
+  collectDeviceSignature,
+  formatRelativeTimeHe,
+  isCompatibleDeviceProfile,
+} from '../services/deviceProfileService';
 
 interface ProfileAndDevicesModalProps {
   isOpen: boolean;
@@ -16,6 +21,7 @@ interface ProfileAndDevicesModalProps {
   onLogin: () => void;
   onLogout: () => void;
   activeDeviceId: string | null;
+  detectedDevice?: DetectedDeviceType;
   deviceProfiles: Record<string, DeviceProfile>;
   onRenameDevice: (deviceId: string, newName: string) => void;
   onDeleteDevice: (deviceId: string) => void;
@@ -62,6 +68,7 @@ const ProfileAndDevicesModal: React.FC<ProfileAndDevicesModalProps> = ({
   onLogin,
   onLogout,
   activeDeviceId,
+  detectedDevice,
   deviceProfiles,
   onRenameDevice,
   onDeleteDevice,
@@ -85,6 +92,7 @@ const ProfileAndDevicesModal: React.FC<ProfileAndDevicesModalProps> = ({
   if (!isOpen) return null;
 
   const avatarSrc = customAvatarUrl || user?.photoURL || null;
+  const currentSig = collectDeviceSignature();
   const profilesList = Object.values(deviceProfiles).sort((a, b) => {
     if (a.id === activeDeviceId) return -1;
     if (b.id === activeDeviceId) return 1;
@@ -280,6 +288,7 @@ const ProfileAndDevicesModal: React.FC<ProfileAndDevicesModalProps> = ({
               <div className="space-y-2">
                 {profilesList.map((profile) => {
                   const isCurrent = profile.id === activeDeviceId;
+                  const isCompatible = !detectedDevice || isCompatibleDeviceProfile(profile, detectedDevice, currentSig);
                   const overrideCount = Object.keys(profile.overrides || {}).length;
                   const isEditingThis = editingDeviceId === profile.id;
 
@@ -372,13 +381,15 @@ const ProfileAndDevicesModal: React.FC<ProfileAndDevicesModalProps> = ({
                             </button>
                             {!isCurrent && (
                               <>
-                                <button
-                                  type="button"
-                                  onClick={() => onSwitchActiveDevice(profile.id)}
-                                  className="text-sky-400 hover:underline"
-                                >
-                                  הגדר כמכשיר זה
-                                </button>
+                                {isCompatible && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onSwitchActiveDevice(profile.id)}
+                                    className="text-sky-400 hover:underline"
+                                  >
+                                    הגדר כמכשיר זה
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => onDeleteDevice(profile.id)}
