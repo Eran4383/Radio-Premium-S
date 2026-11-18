@@ -1,11 +1,21 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Station } from '../types';
+import { Station, StationAdminMeta, ArchivedNonHttpsStation } from '../types';
 import { fetchDefaultIsraeliStations } from '../services/radioService';
-import { saveCustomStations, resetStationsInFirestore, fetchAdmins, addAdmin, removeAdmin } from '../services/settingsService';
+import {
+  saveCustomStations,
+  resetStationsInFirestore,
+  fetchAdmins,
+  addAdmin,
+  removeAdmin,
+  fetchStationAdminMeta,
+  saveStationAdminMeta,
+  getLocalStationAdminMeta,
+} from '../services/settingsService';
 import {
   getStationHttpsIssues,
   findPotentialDuplicates,
   mergeAliasesIntoStation,
+  makeStationPairKey,
   testStreamUrl,
   testImageUrl,
 } from '../services/stationAdminUtils';
@@ -16,6 +26,8 @@ import AdminStationList, { RowTestState } from './admin/AdminStationList';
 import AdminAdminsTab from './admin/AdminAdminsTab';
 import AdminDiagnosticsTab from './admin/AdminDiagnosticsTab';
 import AdminDuplicatesTab from './admin/AdminDuplicatesTab';
+import AdminNonHttpsArchiveTab from './admin/AdminNonHttpsArchiveTab';
+import DeleteStationModal from './admin/DeleteStationModal';
 import ImagePreviewModal from './admin/ImagePreviewModal';
 import { LogPanel } from './admin/LogPanel';
 
@@ -39,10 +51,27 @@ interface DiagnosticResult {
   latency: number;
 }
 
+const formatCheckTimestamp = (ts: number | null): string => {
+  if (!ts) return 'טרם נבדק';
+  try {
+    return new Date(ts).toLocaleString('he-IL', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+};
+
 const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStations, onStationsUpdate, currentUserEmail, favorites }) => {
   const [stations, setStations] = useState<Station[]>(currentStations);
   const [editingStation, setEditingStation] = useState<Station | null>(null);
-  const [activeTab, setActiveTab] = useState<'stations' | 'duplicates' | 'admins' | 'diagnostics' | 'logs'>('stations');
+  const [editingArchivedEntryId, setEditingArchivedEntryId] = useState<string | null>(null);
+  const [deletingStation, setDeletingStation] = useState<Station | null>(null);
+  const [activeTab, setActiveTab] = useState<'stations' | 'duplicates' | 'https_archive' | 'admins' | 'diagnostics' | 'logs'>('stations');
   const [admins, setAdmins] = useState<string[]>([]);
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [statusMsg, setStatusMsg] = useState('');
@@ -57,7 +86,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
   const [bulkProgress, setBulkProgress] = useState<{ running: boolean; completed: number; total: number } | null>(null);
   const bulkAbortRef = useRef(false);
 
-  const [imagePreview, setImagePreview] = useState<{ isOpen: boolean; url: string; title: string }>({
+  const [adminMeta, setAdminMeta] = useState<StationAdminMeta>(() => getLocalStationAdminMeta());
+
+  const [imagePreview, setImagePreview] = useState<{
+    isOpen: boolean;
+    url: string;
+    title: string;
+    stationUuid?: string;
+    onCustomSaveUrl?: (newUrl: string) => void;
+  }>({
     isOpen: false,
     url: '',
     title: '',
@@ -71,10 +108,19 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
     stop: stopAudioPreview,
   } = useAdminAudioPreview();
 
+  const updateAdminMeta = useCallback((updater: (prev: StationAdminMeta) => StationAdminMeta) => {
+    setAdminMeta(prev => {
+      const next = updater(prev);
+      saveStationAdminMeta(next);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
       setStations(currentStations);
       fetchAdmins().then(setAdmins);
+      fetchStationAdminMeta().then(setAdminMeta);
     } else {
       bulkAbortRef.current = true;
       stopAudioPreview();
@@ -93,17 +139,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
   );
 
   const duplicateGroupsCount = useMemo(
-    () => findPotentialDuplicates(stations).length,
-    [stations]
+    () => findPotentialDuplicates(stations, adminMeta.ignoredDuplicatePairs).length,
+    [stations, adminMeta.ignoredDuplicatePairs]
   );
+
+  const showTempStatus = (msg: string, duration = 3500) => {
+    setStatusMsg(msg);
+    setTimeout(() => setStatusMsg(prev => (prev === msg ? '' : prev)), duration);
+  };
 
   const handleSaveToCloud = async () => {
     setIsLoading(true);
     try {
-      await saveCustomStations(stations);
+      await Promise.all([
+        saveCustomStations(stations),
+        saveStationAdminMeta(adminMeta),
+      ]);
       onStationsUpdate(stations);
-      setStatusMsg('נשמר בהצלחה בענן!');
-      setTimeout(() => setStatusMsg(''), 3000);
+      showTempStatus('נשמר בהצלחה בענן!', 3000);
     } catch (e) {
       console.error(e);
       setStatusMsg('שגיאה בשמירה.');
@@ -120,7 +173,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
       const defaults = await fetchDefaultIsraeliStations();
       setStations(defaults);
       onStationsUpdate(defaults);
-      setStatusMsg('שוחזר לברירת מחדל.');
+      showTempStatus('שוחזר לברירת מחדל.');
     } catch (e) {
       console.error(e);
       setStatusMsg('שגיאה בשחזור.');
@@ -130,14 +183,103 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
   };
 
   const handleStationSave = (updated: Station) => {
+    if (editingArchivedEntryId) {
+      setStations(prev => [updated, ...prev.filter(s => s.stationuuid !== updated.stationuuid)]);
+      updateAdminMeta(prev => ({
+        ...prev,
+        archivedNonHttps: prev.archivedNonHttps.filter(a => a.id !== editingArchivedEntryId),
+      }));
+      setEditingArchivedEntryId(null);
+      setEditingStation(null);
+      setActiveTab('stations');
+      showTempStatus(`התחנה "${updated.name}" הוחזרה לרשימה! לחץ "שמור לענן" לשמירה.`, 4500);
+      return;
+    }
+
     setStations(prev => prev.map(s => (s.stationuuid === updated.stationuuid ? updated : s)));
     setEditingStation(null);
   };
 
-  const handleDelete = (uuid: string) => {
+  const handleQuickUpdateUrls = (uuid: string, updates: { url_resolved: string; favicon: string }) => {
+    setStations(prev =>
+      prev.map(s =>
+        s.stationuuid === uuid
+          ? { ...s, url_resolved: updates.url_resolved, favicon: updates.favicon }
+          : s
+      )
+    );
+    showTempStatus('הקישורים עודכנו (זכור ללחוץ "שמור לענן").', 3000);
+  };
+
+  const handleRequestDelete = (uuid: string) => {
     const target = stations.find(s => s.stationuuid === uuid);
-    if (!confirm(`למחוק את התחנה "${target?.name || ''}"?`)) return;
-    setStations(prev => prev.filter(s => s.stationuuid !== uuid));
+    if (!target) return;
+    setDeletingStation(target);
+  };
+
+  const handleConfirmDelete = (target: Station, archiveNonHttps: boolean, reason: string) => {
+    setStations(prev => prev.filter(s => s.stationuuid !== target.stationuuid));
+    if (archiveNonHttps) {
+      const archiveEntry: ArchivedNonHttpsStation = {
+        id: target.stationuuid || crypto.randomUUID(),
+        station: target,
+        deletedAt: Date.now(),
+        reason,
+        deletedBy: currentUserEmail,
+      };
+      updateAdminMeta(prev => ({
+        ...prev,
+        archivedNonHttps: [
+          archiveEntry,
+          ...prev.archivedNonHttps.filter(a => a.station.stationuuid !== target.stationuuid),
+        ],
+      }));
+      showTempStatus(`"${target.name}" נמחקה ונשמרה במעקב HTTPS (זכור ללחוץ "שמור לענן").`, 4500);
+    } else {
+      showTempStatus(`"${target.name}" נמחקה (זכור ללחוץ "שמור לענן").`, 3500);
+    }
+    setDeletingStation(null);
+  };
+
+  const handleRestoreArchivedStation = (entry: ArchivedNonHttpsStation, upgradePassingHttps = false) => {
+    let restored = { ...entry.station };
+    if (upgradePassingHttps) {
+      if (restored.url_resolved.trim().toLowerCase().startsWith('http://')) {
+        restored.url_resolved = restored.url_resolved.trim().replace(/^http:\/\//i, 'https://');
+      }
+      if (restored.favicon.trim().toLowerCase().startsWith('http://')) {
+        restored.favicon = restored.favicon.trim().replace(/^http:\/\//i, 'https://');
+      }
+    }
+    setStations(prev => [restored, ...prev.filter(s => s.stationuuid !== restored.stationuuid)]);
+    updateAdminMeta(prev => ({
+      ...prev,
+      archivedNonHttps: prev.archivedNonHttps.filter(a => a.id !== entry.id),
+    }));
+    showTempStatus(`התחנה "${restored.name}" הוחזרה לרשימה! לחץ "שמור לענן" לשמירה.`, 4500);
+  };
+
+  const handleUpdateArchivedStation = (id: string, updatedStation: Station, updatedReason?: string) => {
+    updateAdminMeta(prev => ({
+      ...prev,
+      archivedNonHttps: prev.archivedNonHttps.map(a =>
+        a.id === id
+          ? {
+              ...a,
+              station: updatedStation,
+              ...(updatedReason !== undefined ? { reason: updatedReason } : {}),
+            }
+          : a
+      ),
+    }));
+    showTempStatus('העדכון נשמר בארכיון מעקב HTTPS.', 2500);
+  };
+
+  const handleRemoveArchivedStation = (id: string) => {
+    updateAdminMeta(prev => ({
+      ...prev,
+      archivedNonHttps: prev.archivedNonHttps.filter(a => a.id !== id),
+    }));
   };
 
   const handleMergeAndDelete = (sourceUuid: string, duplicateUuid: string) => {
@@ -153,8 +295,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
         .filter(s => s.stationuuid !== duplicateUuid)
         .map(s => (s.stationuuid === sourceUuid ? updatedSource : s))
     );
-    setStatusMsg(`השם "${duplicate.name}" נשמר ככינוי של "${source.name}" והכפילות הוסרה (זכור ללחוץ "שמור לענן").`);
-    setTimeout(() => setStatusMsg(''), 4500);
+    showTempStatus(`השם "${duplicate.name}" נשמר ככינוי של "${source.name}" והכפילות הוסרה (זכור ללחוץ "שמור לענן").`, 4500);
+  };
+
+  const handleMarkNotDuplicates = (groupStations: Station[]) => {
+    const newKeys: string[] = [];
+    for (let i = 0; i < groupStations.length; i++) {
+      for (let j = i + 1; j < groupStations.length; j++) {
+        newKeys.push(makeStationPairKey(groupStations[i].stationuuid, groupStations[j].stationuuid));
+      }
+    }
+    if (newKeys.length === 0) return;
+    updateAdminMeta(prev => ({
+      ...prev,
+      ignoredDuplicatePairs: Array.from(new Set([...prev.ignoredDuplicatePairs, ...newKeys])),
+    }));
+    showTempStatus('הזוגות סומנו כתחנות שונות ולא יוצגו שוב יחד ככפילות.', 3500);
+  };
+
+  const handleResetIgnoredPairs = () => {
+    if (!confirm('לאפס את כל סימוני "לא כפילות" ולבדוק את כל הזוגות מחדש?')) return;
+    updateAdminMeta(prev => ({ ...prev, ignoredDuplicatePairs: [] }));
+    showTempStatus('סימוני "לא כפילות" אופסו.', 3000);
   };
 
   const handleAddStation = () => {
@@ -169,6 +331,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
       bitrate: 128,
     };
     setStations([newStation, ...stations]);
+    setEditingArchivedEntryId(null);
     setEditingStation(newStation);
     setSortType('default');
     setOnlyHttpsIssues(false);
@@ -279,6 +442,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
 
     await Promise.all(Array.from({ length: Math.min(concurrency, total) }, () => worker()));
     setBulkProgress(prev => (prev ? { ...prev, running: false } : null));
+    if (completed > 0) {
+      const checkedAt = Date.now();
+      updateAdminMeta(prev => ({ ...prev, lastBulkCheckAt: checkedAt }));
+    }
   };
 
   const handleStopBulkTest = () => {
@@ -335,8 +502,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
       })
     );
     if (upgradedStreams > 0 || upgradedFavicons > 0) {
-      setStatusMsg(`שודרגו ${upgradedStreams} שידורים ו-${upgradedFavicons} סמלים ל-HTTPS. לחץ "שמור לענן" לשמירה.`);
-      setTimeout(() => setStatusMsg(''), 4500);
+      showTempStatus(`שודרגו ${upgradedStreams} שידורים ו-${upgradedFavicons} סמלים ל-HTTPS. לחץ "שמור לענן" לשמירה.`, 4500);
     }
   };
 
@@ -425,15 +591,41 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
         <EditStationModal
           station={editingStation}
           onSave={handleStationSave}
-          onCancel={() => setEditingStation(null)}
+          onCancel={() => {
+            setEditingStation(null);
+            setEditingArchivedEntryId(null);
+          }}
         />
       )}
+
+      <DeleteStationModal
+        station={deletingStation}
+        failedHttpsTest={
+          deletingStation ? rowTestResults[deletingStation.stationuuid]?.httpsStreamOk === false : false
+        }
+        onConfirmDelete={handleConfirmDelete}
+        onCancel={() => setDeletingStation(null)}
+      />
 
       <ImagePreviewModal
         isOpen={imagePreview.isOpen}
         imageUrl={imagePreview.url}
         title={imagePreview.title}
         onClose={() => setImagePreview(prev => ({ ...prev, isOpen: false }))}
+        onSaveUrl={(newUrl) => {
+          if (imagePreview.onCustomSaveUrl) {
+            imagePreview.onCustomSaveUrl(newUrl);
+            setImagePreview(prev => ({ ...prev, url: newUrl }));
+            return;
+          }
+          if (imagePreview.stationUuid) {
+            setStations(prev =>
+              prev.map(s => (s.stationuuid === imagePreview.stationUuid ? { ...s, favicon: newUrl } : s))
+            );
+            setImagePreview(prev => ({ ...prev, url: newUrl }));
+            showTempStatus('קישור התמונה עודכן (זכור ללחוץ "שמור לענן").', 3000);
+          }
+        }}
       />
 
       <div className="flex items-center justify-between p-4 bg-bg-secondary shadow-md shrink-0">
@@ -448,6 +640,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
           [
             { id: 'stations', label: `תחנות (${stations.length})` },
             { id: 'duplicates', label: `🔍 כפילויות${duplicateGroupsCount > 0 ? ` (${duplicateGroupsCount})` : ''}` },
+            { id: 'https_archive', label: `📦 מעקב HTTPS${adminMeta.archivedNonHttps.length > 0 ? ` (${adminMeta.archivedNonHttps.length})` : ''}` },
             { id: 'admins', label: 'מנהלים' },
             { id: 'diagnostics', label: '🩺 דיאגנוסטיקה' },
             { id: 'logs', label: '📋 לוגים' },
@@ -469,7 +662,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
         {activeTab === 'stations' && (
           <>
             <div className="space-y-2 mb-4 sticky top-0 bg-bg-primary py-2 z-10 border-b border-gray-800">
-              <div className="flex flex-wrap gap-2 items-center">
+              <div className="flex flex-wrap gap-2 items-end">
                 <button
                   onClick={handleSaveToCloud}
                   disabled={isLoading}
@@ -483,23 +676,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
                 >
                   + הוסף
                 </button>
-                {bulkProgress?.running ? (
-                  <button
-                    onClick={handleStopBulkTest}
-                    className="bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded font-semibold shadow-lg text-xs sm:text-sm"
-                  >
-                    ⏹ עצור בדיקה ({bulkProgress.completed}/{bulkProgress.total})
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleTestAllDisplayed}
-                    disabled={displayedAdminStations.length === 0}
-                    className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white px-3 py-2 rounded font-semibold shadow-lg text-xs sm:text-sm"
-                    title="בודק אוטומטית את כל התחנות המוצגות (כולל בדיקת תאימות HTTPS)"
-                  >
-                    ⚡ בדוק הכל אוטומטית ({displayedAdminStations.length})
-                  </button>
-                )}
+                <div className="flex flex-col items-center gap-0.5">
+                  <span className="text-[10px] text-text-secondary/85 leading-none whitespace-nowrap">
+                    בדיקה אחרונה: {formatCheckTimestamp(adminMeta.lastBulkCheckAt)}
+                  </span>
+                  {bulkProgress?.running ? (
+                    <button
+                      onClick={handleStopBulkTest}
+                      className="bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded font-semibold shadow-lg text-xs sm:text-sm"
+                    >
+                      ⏹ עצור בדיקה ({bulkProgress.completed}/{bulkProgress.total})
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleTestAllDisplayed}
+                      disabled={displayedAdminStations.length === 0}
+                      className="bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white px-3 py-2 rounded font-semibold shadow-lg text-xs sm:text-sm"
+                      title="בודק אוטומטית את כל התחנות המוצגות (כולל בדיקת תאימות HTTPS)"
+                    >
+                      ⚡ בדוק הכל אוטומטית ({displayedAdminStations.length})
+                    </button>
+                  )}
+                </div>
                 {playingKey && (
                   <button
                     onClick={stopAudioPreview}
@@ -591,25 +789,62 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
               testResults={rowTestResults}
               onQuickTest={runStationCheck}
               onUpgradeFieldHttps={handleUpgradeFieldHttps}
+              onQuickUpdateUrls={handleQuickUpdateUrls}
               playingKey={playingKey}
               isAudioLoading={isAudioLoading}
               onTogglePlay={togglePlay}
-              onPreviewImage={(url, title) => setImagePreview({ isOpen: true, url, title })}
-              onEdit={setEditingStation}
-              onDelete={handleDelete}
+              onPreviewImage={(url, title, stationUuid) =>
+                setImagePreview({ isOpen: true, url, title, stationUuid })
+              }
+              onEdit={(station) => {
+                setEditingArchivedEntryId(null);
+                setEditingStation(station);
+              }}
+              onDelete={handleRequestDelete}
               onMove={moveStation}
             />
           </>
         )}
 
         {activeTab === 'duplicates' && (
-          <AdminDuplicatesTab
-            stations={stations}
-            favorites={favorites}
-            onEdit={setEditingStation}
-            onDelete={handleDelete}
-            onMergeAndDelete={handleMergeAndDelete}
-          />
+          <>
+            {statusMsg && <div className="p-2 mb-3 bg-blue-600 text-white text-center rounded animate-pulse text-sm">{statusMsg}</div>}
+            <AdminDuplicatesTab
+              stations={stations}
+              favorites={favorites}
+              ignoredPairKeys={adminMeta.ignoredDuplicatePairs}
+              onEdit={(station) => {
+                setEditingArchivedEntryId(null);
+                setEditingStation(station);
+              }}
+              onDelete={handleRequestDelete}
+              onMergeAndDelete={handleMergeAndDelete}
+              onMarkNotDuplicates={handleMarkNotDuplicates}
+              onResetIgnoredPairs={handleResetIgnoredPairs}
+              onPreviewImage={(url, title, stationUuid) =>
+                setImagePreview({ isOpen: true, url, title, stationUuid })
+              }
+            />
+          </>
+        )}
+
+        {activeTab === 'https_archive' && (
+          <>
+            {statusMsg && <div className="p-2 mb-3 bg-blue-600 text-white text-center rounded animate-pulse text-sm">{statusMsg}</div>}
+            <AdminNonHttpsArchiveTab
+              archivedStations={adminMeta.archivedNonHttps}
+              onRestoreStation={handleRestoreArchivedStation}
+              onEditBeforeRestore={(entry) => {
+                setEditingArchivedEntryId(entry.id);
+                setEditingStation(entry.station);
+              }}
+              onUpdateArchivedStation={handleUpdateArchivedStation}
+              onRemoveFromArchive={handleRemoveArchivedStation}
+              onPreviewImage={(url, title, onCustomSaveUrl) =>
+                setImagePreview({ isOpen: true, url, title, onCustomSaveUrl })
+              }
+            />
+          </>
         )}
 
         {activeTab === 'admins' && (

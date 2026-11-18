@@ -6,25 +6,33 @@ import { useAdminAudioPreview } from '../../hooks/useAdminAudioPreview';
 interface AdminDuplicatesTabProps {
   stations: Station[];
   favorites: string[];
+  ignoredPairKeys: string[];
   onEdit: (station: Station) => void;
   onDelete: (uuid: string) => void;
   onMergeAndDelete: (sourceUuid: string, duplicateUuid: string) => void;
+  onMarkNotDuplicates: (groupStations: Station[]) => void;
+  onResetIgnoredPairs: () => void;
+  onPreviewImage: (url: string, title: string, stationUuid: string) => void;
 }
 
 const AdminDuplicatesTab: React.FC<AdminDuplicatesTabProps> = ({
   stations,
   favorites,
+  ignoredPairKeys,
   onEdit,
   onDelete,
   onMergeAndDelete,
+  onMarkNotDuplicates,
+  onResetIgnoredPairs,
+  onPreviewImage,
 }) => {
-  const [ignoredGroupIds, setIgnoredGroupIds] = useState<string[]>([]);
   const [selectedSourceByGroup, setSelectedSourceByGroup] = useState<Record<string, string>>({});
+  const [sourceMergePickerId, setSourceMergePickerId] = useState<string | null>(null);
   const { playingKey, error: previewError, togglePlay, stop: stopPreview } = useAdminAudioPreview();
 
   const duplicateGroups = useMemo(() => {
-    return findPotentialDuplicates(stations).filter(g => !ignoredGroupIds.includes(g.id));
-  }, [stations, ignoredGroupIds]);
+    return findPotentialDuplicates(stations, ignoredPairKeys);
+  }, [stations, ignoredPairKeys]);
 
   const getSuggestedSourceUuid = (groupStations: Station[]): string => {
     const sorted = [...groupStations].sort((a, b) => {
@@ -50,18 +58,32 @@ const AdminDuplicatesTab: React.FC<AdminDuplicatesTabProps> = ({
       <div className="bg-bg-secondary p-4 rounded-lg border border-blue-500/30 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-bold text-sm text-text-primary">🔍 איתור כפילויות בטוח (ללא מחיקה אוטומטית)</h3>
-          {playingKey && (
-            <button
-              onClick={stopPreview}
-              className="px-3 py-1 text-xs font-semibold rounded bg-red-600 hover:bg-red-500 text-white"
-            >
-              ⏹ עצור השמעת בדיקה
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {ignoredPairKeys.length > 0 && (
+              <button
+                type="button"
+                onClick={onResetIgnoredPairs}
+                className="px-2.5 py-1 text-[11px] rounded bg-gray-700/80 hover:bg-gray-600 text-gray-200 transition-colors"
+                title="אפס את רשימת הזוגות שסומנו כלא-כפילות ובדוק מחדש"
+              >
+                🔄 אפס סימוני &quot;לא כפילות&quot; ({ignoredPairKeys.length})
+              </button>
+            )}
+            {playingKey && (
+              <button
+                type="button"
+                onClick={stopPreview}
+                className="px-3 py-1 text-xs font-semibold rounded bg-red-600 hover:bg-red-500 text-white"
+              >
+                ⏹ עצור השמעת בדיקה
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-xs text-text-secondary leading-relaxed">
           הכלי מאתר תחנות החשודות ככפולות לפי כתובת שידור זהה, כינוי שמור, לוגו זהה או שם דומה.
-          בכל קבוצה סמן את <strong>תחנת המקור</strong>, ואז תוכל ללחוץ <strong>&quot;מחק ושמור שם במקור&quot;</strong> כדי למחוק את הכפילות ולהוסיף את שמה אל תחנת המקור (כך שהמערכת תזהה אותה גם בעתיד).
+          בכל תחנה ניתן ללחוץ <strong>&quot;מחק ושמור שם&quot;</strong> כדי למחוק אותה ולהוסיף את שמה לתחנה שתישאר,
+          או לסמן <strong>&quot;אלו תחנות שונות&quot;</strong> כך שזוג תחנות אלו לא יוצג שוב יחד (אך עדיין יזוהה אם יצטרף גורם שלישי).
         </p>
         {previewError && (
           <div className="p-2 rounded bg-red-500/15 border border-red-500/30 text-xs text-red-300">
@@ -100,10 +122,12 @@ const AdminDuplicatesTab: React.FC<AdminDuplicatesTabProps> = ({
                     <span className="text-xs text-text-secondary">({group.stations.length} תחנות)</span>
                   </div>
                   <button
-                    onClick={() => setIgnoredGroupIds(prev => [...prev, group.id])}
+                    type="button"
+                    onClick={() => onMarkNotDuplicates(group.stations)}
                     className="px-2.5 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors"
+                    title="שמור שזוגות אלו אינם כפילות — הם לא יוצגו שוב יחד בעתיד, אך עדיין יזוהו מול תחנות אחרות"
                   >
-                    ✓ אלו תחנות שונות (הסתר)
+                    ✓ אלו תחנות שונות (אל תזהה יחד שוב)
                   </button>
                 </div>
 
@@ -119,6 +143,9 @@ const AdminDuplicatesTab: React.FC<AdminDuplicatesTabProps> = ({
                     const isPreviewing = playingKey === s.stationuuid;
                     const isFav = favorites.includes(s.stationuuid);
                     const isSource = s.stationuuid === activeSourceUuid;
+                    const siblings = group.stations.filter(x => x.stationuuid !== s.stationuuid);
+                    const pickerKey = `${group.id}:${s.stationuuid}`;
+                    const showMultiMergePicker = sourceMergePickerId === pickerKey;
 
                     return (
                       <div
@@ -129,12 +156,22 @@ const AdminDuplicatesTab: React.FC<AdminDuplicatesTabProps> = ({
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                           <div className="flex items-start gap-2.5 flex-grow min-w-0">
-                            <img
-                              src={s.favicon}
-                              alt={s.name}
-                              className="w-10 h-10 rounded bg-black object-contain flex-shrink-0 border border-gray-700"
-                              onError={e => { (e.target as HTMLImageElement).src = ''; }}
-                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (s.favicon?.trim()) onPreviewImage(s.favicon, s.name, s.stationuuid);
+                              }}
+                              disabled={!s.favicon?.trim()}
+                              className="w-10 h-10 rounded bg-black object-contain flex-shrink-0 border border-gray-700 hover:border-accent overflow-hidden cursor-zoom-in disabled:cursor-default"
+                              title={s.favicon?.trim() ? 'לחץ להגדלת הלוגו' : undefined}
+                            >
+                              <img
+                                src={s.favicon}
+                                alt={s.name}
+                                className="w-full h-full object-contain"
+                                onError={e => { (e.target as HTMLImageElement).src = ''; }}
+                              />
+                            </button>
                             <div className="min-w-0 flex-grow space-y-1">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <span className="font-bold text-sm text-text-primary">{s.name}</span>
@@ -195,6 +232,7 @@ const AdminDuplicatesTab: React.FC<AdminDuplicatesTabProps> = ({
                             >
                               ערוך
                             </button>
+
                             {!isSource && activeSourceStation && (
                               <button
                                 type="button"
@@ -208,6 +246,34 @@ const AdminDuplicatesTab: React.FC<AdminDuplicatesTabProps> = ({
                                 🔗 מחק ושמור שם במקור
                               </button>
                             )}
+
+                            {isSource && siblings.length === 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isPreviewing) stopPreview();
+                                  onMergeAndDelete(siblings[0].stationuuid, s.stationuuid);
+                                }}
+                                className="px-2.5 py-1.5 rounded text-xs font-semibold bg-amber-600/25 hover:bg-amber-600/45 text-amber-200 border border-amber-500/40 transition-colors"
+                                title={`מחק תחנה זו והעבר את השם "${s.name}" אל "${siblings[0].name}"`}
+                              >
+                                🔗 מחק ושמור שם ב&quot;{siblings[0].name}&quot;
+                              </button>
+                            )}
+
+                            {isSource && siblings.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSourceMergePickerId(prev => (prev === pickerKey ? null : pickerKey))
+                                }
+                                className="px-2.5 py-1.5 rounded text-xs font-semibold bg-amber-600/25 hover:bg-amber-600/45 text-amber-200 border border-amber-500/40 transition-colors"
+                                title="בחר באיזו תחנה אחרת לשמור את השם לפני מחיקה"
+                              >
+                                🔗 מחק ושמור שם ב...
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => {
@@ -215,12 +281,32 @@ const AdminDuplicatesTab: React.FC<AdminDuplicatesTabProps> = ({
                                 onDelete(s.stationuuid);
                               }}
                               className="px-2.5 py-1.5 rounded text-xs text-red-400 hover:bg-red-400/20"
-                              title="מחק ללא שמירת השם במקור"
+                              title="מחק ללא שמירת השם"
                             >
                               מחק
                             </button>
                           </div>
                         </div>
+
+                        {isSource && siblings.length > 1 && showMultiMergePicker && (
+                          <div className="p-2 rounded bg-bg-secondary border border-amber-500/35 flex flex-wrap items-center gap-2 text-xs">
+                            <span className="text-amber-200 font-medium">שמור את השם &quot;{s.name}&quot; ב:</span>
+                            {siblings.map(target => (
+                              <button
+                                key={target.stationuuid}
+                                type="button"
+                                onClick={() => {
+                                  if (isPreviewing) stopPreview();
+                                  setSourceMergePickerId(null);
+                                  onMergeAndDelete(target.stationuuid, s.stationuuid);
+                                }}
+                                className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors"
+                              >
+                                {target.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

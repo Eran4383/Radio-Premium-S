@@ -55,17 +55,33 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
     if (name === 'favicon') setFaviconTest({ status: 'idle', message: '' });
   };
 
+  const [newTagDraft, setNewTagDraft] = useState('');
+
   const handleAddAlias = () => {
-    const trimmed = newAliasDraft.trim();
-    if (!trimmed) return;
+    const parts = newAliasDraft
+      .split(/[,،]/)
+      .map(p => p.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return;
+
     const current = formData.aliases || [];
-    const exists =
-      trimmed.toLowerCase() === formData.name.trim().toLowerCase() ||
-      current.some(a => a.trim().toLowerCase() === trimmed.toLowerCase());
-    if (!exists) {
+    const seen = new Set<string>([
+      formData.name.trim().toLowerCase(),
+      ...current.map(a => a.trim().toLowerCase()),
+    ]);
+    const toAdd: string[] = [];
+    for (const part of parts) {
+      const low = part.toLowerCase();
+      if (!seen.has(low)) {
+        seen.add(low);
+        toAdd.push(part);
+      }
+    }
+
+    if (toAdd.length > 0) {
       setFormData(prev => ({
         ...prev,
-        aliases: [...(prev.aliases || []), trimmed],
+        aliases: [...(prev.aliases || []), ...toAdd],
       }));
     }
     setNewAliasDraft('');
@@ -76,6 +92,35 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
       ...prev,
       aliases: (prev.aliases || []).filter(a => a !== aliasToRemove),
     }));
+  };
+
+  const parsedTags = formData.tags
+    .split(/[,،]/)
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  const handleAddTags = () => {
+    const parts = newTagDraft
+      .split(/[,،]/)
+      .map(p => p.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return;
+
+    const seen = new Set(parsedTags.map(t => t.toLowerCase()));
+    const next = [...parsedTags];
+    for (const p of parts) {
+      if (!seen.has(p.toLowerCase())) {
+        seen.add(p.toLowerCase());
+        next.push(p);
+      }
+    }
+    setFormData(prev => ({ ...prev, tags: next.join(', ') }));
+    setNewTagDraft('');
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    const next = parsedTags.filter(t => t !== tagToRemove);
+    setFormData(prev => ({ ...prev, tags: next.join(', ') }));
   };
 
   const handleCopy = async (text: string, field: 'stream' | 'favicon') => {
@@ -164,6 +209,10 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
         imageUrl={formData.favicon}
         title={formData.name || 'לוגו תחנה'}
         onClose={() => setIsImageBubbleOpen(false)}
+        onSaveUrl={(newUrl) => {
+          setFormData(prev => ({ ...prev, favicon: newUrl }));
+          setFaviconTest({ status: 'idle', message: '' });
+        }}
       />
 
       <div className="bg-bg-secondary p-4 sm:p-6 rounded-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-gray-700 shadow-2xl">
@@ -189,10 +238,11 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
 
           {/* Saved Alternate Names / Aliases */}
           <div className="p-3 rounded-lg bg-bg-primary/50 border border-gray-700/70 space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-1">
               <label className="text-xs font-semibold text-text-secondary">
                 שמות נוספים / כינויים מוכרים (לזיהוי כפילויות ומידע)
               </label>
+              <span className="text-[10px] text-text-secondary/80">ניתן להוסיף מס&apos; שמות יחד מופרדים בפסיק</span>
             </div>
             {formData.aliases && formData.aliases.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -225,7 +275,7 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
                     handleAddAlias();
                   }
                 }}
-                placeholder="הוסף שם נוסף לתחנה (לדוגמה: גלגלצ HD)..."
+                placeholder="הוסף שם או מס' שמות מופרדים בפסיק (לדוגמה: גלגלצ HD, Galgalatz)..."
                 className="flex-1 px-2.5 py-1.5 rounded bg-bg-primary border border-gray-700 text-xs text-text-primary focus:outline-none focus:border-accent"
               />
               <button
@@ -241,7 +291,7 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
           {/* Stream URL Section */}
           <div className="p-3 rounded-lg bg-bg-primary/60 border border-gray-700/80 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="text-xs font-semibold text-text-secondary">URL לשידור (Stream)</label>
+              <label className="text-xs font-semibold text-text-secondary">קישור לתחנה / שידור (Stream URL)</label>
               {httpsIssues.streamIsHttp ? (
                 <span className="text-[11px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   ⚠️ כתובת HTTP לא מאובטחת
@@ -471,13 +521,59 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="sm:col-span-2">
-              <label className="block text-xs text-text-secondary mb-1">תגיות</label>
+            <div className="sm:col-span-2 p-3 rounded-lg bg-bg-primary/50 border border-gray-700/70 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-semibold text-text-secondary">תגיות</label>
+                <span className="text-[10px] text-text-secondary/80">הפרדה בפסיקים להוספה מהירה</span>
+              </div>
+              {parsedTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {parsedTags.map((tag, idx) => (
+                    <span
+                      key={`${tag}-${idx}`}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-gray-700/70 text-gray-200 border border-gray-600/60"
+                    >
+                      <span>{tag}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="text-gray-400 hover:text-red-300 font-bold"
+                        aria-label={`הסר תגית ${tag}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newTagDraft}
+                  onChange={e => setNewTagDraft(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddTags();
+                    }
+                  }}
+                  placeholder="הוסף תגיות מופרדות בפסיק (לדוגמה: news, talk, live)..."
+                  className="flex-1 px-2.5 py-1.5 rounded bg-bg-primary border border-gray-700 text-xs text-text-primary focus:outline-none focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddTags}
+                  className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+                >
+                  + הוסף
+                </button>
+              </div>
               <input
                 name="tags"
                 value={formData.tags}
                 onChange={handleChange}
-                className="w-full p-2 rounded bg-bg-primary border border-gray-700 text-sm focus:outline-none focus:border-accent"
+                className="w-full p-2 rounded bg-bg-primary border border-gray-700 text-xs text-text-secondary focus:outline-none focus:border-accent"
+                placeholder="עריכה ישירה של תגיות מופרדות בפסיק..."
               />
             </div>
             <div>

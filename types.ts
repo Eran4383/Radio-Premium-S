@@ -29,6 +29,21 @@ export interface SmartPlaylistItem {
     before: number;
 }
 
+export interface ArchivedNonHttpsStation {
+    id: string;
+    station: Station;
+    deletedAt: number;
+    reason: string;
+    deletedBy?: string | null;
+    lastCheckedAt?: number;
+}
+
+export interface StationAdminMeta {
+    archivedNonHttps: ArchivedNonHttpsStation[];
+    ignoredDuplicatePairs: string[];
+    lastBulkCheckAt: number | null;
+}
+
 export const THEMES = ['dark', 'light', 'blue', 'sunset', 'forest', 'ocean', 'rose', 'matrix'] as const;
 export type Theme = typeof THEMES[number];
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Station } from '../../types';
 import { getStationHttpsIssues } from '../../services/stationAdminUtils';
 
@@ -21,10 +21,11 @@ interface AdminStationListProps {
   testResults: Record<string, RowTestState>;
   onQuickTest: (station: Station) => void;
   onUpgradeFieldHttps: (uuid: string, field: 'stream' | 'favicon') => void;
+  onQuickUpdateUrls: (uuid: string, updates: { url_resolved: string; favicon: string }) => void;
   playingKey: string | null;
   isAudioLoading: boolean;
   onTogglePlay: (key: string, url: string, label?: string) => void;
-  onPreviewImage: (url: string, title: string) => void;
+  onPreviewImage: (url: string, title: string, stationUuid: string) => void;
   onEdit: (station: Station) => void;
   onDelete: (uuid: string) => void;
   onMove: (uuid: string, direction: -1 | 1) => void;
@@ -37,6 +38,7 @@ const AdminStationList: React.FC<AdminStationListProps> = ({
   testResults,
   onQuickTest,
   onUpgradeFieldHttps,
+  onQuickUpdateUrls,
   playingKey,
   isAudioLoading,
   onTogglePlay,
@@ -45,6 +47,28 @@ const AdminStationList: React.FC<AdminStationListProps> = ({
   onDelete,
   onMove,
 }) => {
+  const [inlineEditUuid, setInlineEditUuid] = useState<string | null>(null);
+  const [draftStreamUrl, setDraftStreamUrl] = useState('');
+  const [draftFaviconUrl, setDraftFaviconUrl] = useState('');
+
+  const openInlineUrlEdit = (s: Station) => {
+    if (inlineEditUuid === s.stationuuid) {
+      setInlineEditUuid(null);
+      return;
+    }
+    setInlineEditUuid(s.stationuuid);
+    setDraftStreamUrl(s.url_resolved || '');
+    setDraftFaviconUrl(s.favicon || '');
+  };
+
+  const saveInlineUrls = (uuid: string) => {
+    onQuickUpdateUrls(uuid, {
+      url_resolved: draftStreamUrl.trim(),
+      favicon: draftFaviconUrl.trim(),
+    });
+    setInlineEditUuid(null);
+  };
+
   if (stations.length === 0) {
     return (
       <div className="text-center py-8 text-text-secondary text-sm">
@@ -63,6 +87,7 @@ const AdminStationList: React.FC<AdminStationListProps> = ({
         const httpsPlayKey = `row-https:${s.stationuuid}`;
         const isPlayingSource = playingKey === sourcePlayKey;
         const isPlayingHttps = playingKey === httpsPlayKey;
+        const isInlineEditing = inlineEditUuid === s.stationuuid;
         const httpsStreamUrl = issues.streamIsHttp
           ? s.url_resolved.trim().replace(/^http:\/\//i, 'https://')
           : '';
@@ -101,11 +126,11 @@ const AdminStationList: React.FC<AdminStationListProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (s.favicon?.trim()) onPreviewImage(s.favicon, s.name);
+                  if (s.favicon?.trim()) onPreviewImage(s.favicon, s.name, s.stationuuid);
+                  else openInlineUrlEdit(s);
                 }}
-                disabled={!s.favicon?.trim()}
-                className="relative group w-11 h-11 bg-black object-contain rounded flex-shrink-0 border border-gray-700/60 hover:border-accent overflow-hidden cursor-zoom-in disabled:cursor-default"
-                title={s.favicon?.trim() ? 'לחץ להגדלת התמונה' : undefined}
+                className="relative group w-11 h-11 bg-black object-contain rounded flex-shrink-0 border border-gray-700/60 hover:border-accent overflow-hidden cursor-zoom-in"
+                title={s.favicon?.trim() ? 'לחץ להגדלה או עריכת קישור התמונה' : 'לחץ להוספת קישור תמונה'}
                 aria-label={`הגדל לוגו של ${s.name}`}
               >
                 <img
@@ -240,6 +265,18 @@ const AdminStationList: React.FC<AdminStationListProps> = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => openInlineUrlEdit(s)}
+                  className={`px-2.5 py-1.5 rounded text-xs font-medium transition-colors ${
+                    isInlineEditing
+                      ? 'bg-sky-600 text-white'
+                      : 'text-sky-300 hover:bg-sky-400/15'
+                  }`}
+                  title="ערוך ישירות קישור לשידור וקישור לתמונה"
+                >
+                  🔗 קישורים
+                </button>
+                <button
+                  type="button"
                   onClick={() => onEdit(s)}
                   className="px-2.5 py-1.5 text-blue-400 hover:bg-blue-400/15 rounded text-xs font-medium"
                 >
@@ -254,6 +291,51 @@ const AdminStationList: React.FC<AdminStationListProps> = ({
                 </button>
               </div>
             </div>
+
+            {isInlineEditing && (
+              <div className="mt-2.5 p-2.5 rounded-lg bg-bg-primary/80 border border-sky-500/35 space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] text-text-secondary mb-1">קישור לתחנה (Stream URL)</label>
+                    <input
+                      type="text"
+                      value={draftStreamUrl}
+                      onChange={e => setDraftStreamUrl(e.target.value)}
+                      dir="ltr"
+                      placeholder="https://..."
+                      className="w-full px-2.5 py-1.5 rounded bg-bg-secondary border border-gray-700 text-xs font-mono text-left focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-text-secondary mb-1">קישור לתמונה (לוגו URL)</label>
+                    <input
+                      type="text"
+                      value={draftFaviconUrl}
+                      onChange={e => setDraftFaviconUrl(e.target.value)}
+                      dir="ltr"
+                      placeholder="https://..."
+                      className="w-full px-2.5 py-1.5 rounded bg-bg-secondary border border-gray-700 text-xs font-mono text-left focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInlineEditUuid(null)}
+                    className="px-2.5 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-gray-200"
+                  >
+                    ביטול
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => saveInlineUrls(s.stationuuid)}
+                    className="px-3 py-1 rounded text-xs font-semibold bg-accent hover:bg-accent-hover text-white"
+                  >
+                    ✓ שמור קישורים
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
       })}

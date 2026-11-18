@@ -5,16 +5,34 @@ import {
   serverTimestamp,
   collection,
   getDocs,
-  deleteDoc
+  deleteDoc,
+  deleteField
 } from 'firebase/firestore';
 import { auth, db } from './firebaseConfig';
 import { AllSettings, DIM_LEVELS, DEVICE_MODES, DETECTED_DEVICE_LABELS, DetectedDeviceType, DeviceProfile, DeviceTypeDefaults } from '../types/settings';
 import { defaultSettings } from '../store/initialSettings';
-import { Station } from '../types/station';
+import { Station, StationAdminMeta } from '../types/station';
 
 const ADMINS_COLLECTION = 'admins';
 const APP_DATA_COLLECTION = 'app_data';
 const STATIONS_DOC_ID = 'stations_list';
+const ADMIN_META_LOCAL_KEY = 'radio_admin_meta_v1';
+
+const stripUndefinedDeep = <T>(val: T): T => {
+  if (Array.isArray(val)) {
+    return val.map(stripUndefinedDeep) as unknown as T;
+  }
+  if (val && typeof val === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+      if (v !== undefined) {
+        out[k] = stripUndefinedDeep(v);
+      }
+    }
+    return out as T;
+  }
+  return val;
+};
 
 export interface SaveSettingsResult {
   success: boolean;
@@ -110,7 +128,8 @@ export const fetchCustomStations = async (): Promise<Station[] | null> => {
         const docRef = doc(db, APP_DATA_COLLECTION, STATIONS_DOC_ID);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-            return docSnap.data().stations as Station[];
+            const data = docSnap.data();
+            return Array.isArray(data.stations) ? (data.stations as Station[]) : null;
         }
         return null;
     } catch (error) {
@@ -121,26 +140,81 @@ export const fetchCustomStations = async (): Promise<Station[] | null> => {
 
 export const saveCustomStations = async (stations: Station[]) => {
     const docRef = doc(db, APP_DATA_COLLECTION, STATIONS_DOC_ID);
-    const sanitizedStations = stations.map((station) => {
-        const clean: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(station)) {
-            if (value !== undefined) {
-                clean[key] = value;
-            }
-        }
-        return clean as unknown as Station;
-    });
+    const sanitizedStations = stripUndefinedDeep(stations);
     await setDoc(docRef, { 
         stations: sanitizedStations,
         updatedAt: serverTimestamp() 
-    });
+    }, { merge: true });
     return true;
 };
 
 export const resetStationsInFirestore = async () => {
     const docRef = doc(db, APP_DATA_COLLECTION, STATIONS_DOC_ID);
-    await deleteDoc(docRef);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists() && docSnap.data()?.adminMeta) {
+        await setDoc(docRef, { stations: deleteField(), updatedAt: serverTimestamp() }, { merge: true });
+    } else {
+        await deleteDoc(docRef);
+    }
     return true;
+};
+
+const EMPTY_ADMIN_META: StationAdminMeta = {
+    archivedNonHttps: [],
+    ignoredDuplicatePairs: [],
+    lastBulkCheckAt: null,
+};
+
+const normalizeAdminMeta = (raw: any): StationAdminMeta => ({
+    archivedNonHttps: Array.isArray(raw?.archivedNonHttps) ? raw.archivedNonHttps : [],
+    ignoredDuplicatePairs: Array.isArray(raw?.ignoredDuplicatePairs) ? raw.ignoredDuplicatePairs : [],
+    lastBulkCheckAt: typeof raw?.lastBulkCheckAt === 'number' ? raw.lastBulkCheckAt : null,
+});
+
+export const getLocalStationAdminMeta = (): StationAdminMeta => {
+    try {
+        const raw = localStorage.getItem(ADMIN_META_LOCAL_KEY);
+        if (!raw) return EMPTY_ADMIN_META;
+        return normalizeAdminMeta(JSON.parse(raw));
+    } catch {
+        return EMPTY_ADMIN_META;
+    }
+};
+
+export const fetchStationAdminMeta = async (): Promise<StationAdminMeta> => {
+    const local = getLocalStationAdminMeta();
+    try {
+        const docRef = doc(db, APP_DATA_COLLECTION, STATIONS_DOC_ID);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists() && docSnap.data()?.adminMeta) {
+            const cloud = normalizeAdminMeta(docSnap.data().adminMeta);
+            try {
+                localStorage.setItem(ADMIN_META_LOCAL_KEY, JSON.stringify(cloud));
+            } catch {}
+            return cloud;
+        }
+    } catch (error) {
+        console.warn("Could not fetch admin meta from Firestore, using local cache:", error);
+    }
+    return local;
+};
+
+export const saveStationAdminMeta = async (meta: StationAdminMeta): Promise<boolean> => {
+    const cleanMeta = stripUndefinedDeep(normalizeAdminMeta(meta));
+    try {
+        localStorage.setItem(ADMIN_META_LOCAL_KEY, JSON.stringify(cleanMeta));
+    } catch {}
+    try {
+        const docRef = doc(db, APP_DATA_COLLECTION, STATIONS_DOC_ID);
+        await setDoc(docRef, {
+            adminMeta: cleanMeta,
+            adminMetaUpdatedAt: serverTimestamp(),
+        }, { merge: true });
+        return true;
+    } catch (error) {
+        console.warn("Could not save admin meta to Firestore:", error);
+        return false;
+    }
 };
 
 export const normalizeSettings = (raw: any): AllSettings => {

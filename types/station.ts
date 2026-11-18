@@ -23,3 +23,19 @@ export interface SmartPlaylistItem {
     timestamp: number; // Unix timestamp in seconds
     before: number;
 }
+
+export interface ArchivedNonHttpsStation {
+    id: string;
+    station: Station;
+    deletedAt: number;
+    reason: string;
+    deletedBy?: string | null;
+    lastCheckedAt?: number;
+}
+
+export interface StationAdminMeta {
+    archivedNonHttps: ArchivedNonHttpsStation[];
+    ignoredDuplicatePairs: string[];
+    lastBulkCheckAt: number | null;
+}
+

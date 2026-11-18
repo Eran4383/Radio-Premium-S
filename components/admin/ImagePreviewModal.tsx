@@ -5,6 +5,7 @@ interface ImagePreviewModalProps {
   imageUrl: string;
   title?: string;
   onClose: () => void;
+  onSaveUrl?: (newUrl: string) => void;
 }
 
 const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
@@ -12,12 +13,15 @@ const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
   imageUrl,
   title,
   onClose,
+  onSaveUrl,
 }) => {
   const [previewMode, setPreviewMode] = useState<'current' | 'https'>('current');
   const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null);
   const [hasError, setHasError] = useState(false);
+  const [isEditingUrl, setIsEditingUrl] = useState(false);
+  const [draftUrl, setDraftUrl] = useState(imageUrl || '');
 
-  const trimmed = (imageUrl || '').trim();
+  const trimmed = (draftUrl || '').trim();
   const isHttp = trimmed.toLowerCase().startsWith('http://');
   const activeUrl =
     previewMode === 'https' && isHttp
@@ -29,13 +33,15 @@ const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
       setPreviewMode('current');
       setDimensions(null);
       setHasError(false);
+      setIsEditingUrl(false);
+      setDraftUrl(imageUrl || '');
     }
   }, [isOpen, imageUrl]);
 
   useEffect(() => {
     setDimensions(null);
     setHasError(false);
-  }, [previewMode]);
+  }, [previewMode, activeUrl]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -46,7 +52,16 @@ const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen || !trimmed) return null;
+  if (!isOpen || (!trimmed && !isEditingUrl)) return null;
+
+  const handleApplyUrl = (saveHttpsVersion = false) => {
+    const target = saveHttpsVersion ? activeUrl : trimmed;
+    if (!onSaveUrl) return;
+    onSaveUrl(target);
+    setDraftUrl(target);
+    setPreviewMode('current');
+    setIsEditingUrl(false);
+  };
 
   return (
     <div
@@ -102,7 +117,9 @@ const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
         )}
 
         <div className="bg-black/75 rounded-xl border border-gray-700/60 p-3 flex items-center justify-center min-h-[200px] max-h-[300px]">
-          {hasError ? (
+          {!activeUrl ? (
+            <p className="text-xs text-text-secondary">הזן כתובת תמונה לתצוגה מקדימה</p>
+          ) : hasError ? (
             <div className="text-center text-xs text-red-300 space-y-1">
               <p>❌ התמונה לא נטענה מכתובת זו</p>
               {previewMode === 'https' && (
@@ -123,18 +140,80 @@ const ImagePreviewModal: React.FC<ImagePreviewModalProps> = ({
           )}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-2">
           {dimensions && (
             <div className="text-[11px] text-emerald-300 font-medium text-center">
               מידות: {dimensions.width} × {dimensions.height} פיקסלים
             </div>
           )}
-          <div
-            className="text-[11px] font-mono text-text-secondary break-all text-left bg-bg-primary p-2 rounded border border-gray-800 max-h-20 overflow-y-auto"
-            dir="ltr"
-          >
-            {activeUrl}
-          </div>
+
+          {onSaveUrl && (isEditingUrl ? (
+            <div className="space-y-1.5">
+              <textarea
+                rows={2}
+                value={draftUrl}
+                onChange={e => setDraftUrl(e.target.value)}
+                dir="ltr"
+                placeholder="https://..."
+                className="w-full p-2 rounded bg-bg-primary border border-accent/60 text-left text-[11px] font-mono break-all focus:outline-none focus:border-accent"
+              />
+              <div className="flex flex-wrap gap-1.5 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftUrl(imageUrl || '');
+                    setIsEditingUrl(false);
+                  }}
+                  className="px-2.5 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-gray-200"
+                >
+                  ביטול
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyUrl(false)}
+                  className="px-2.5 py-1 rounded text-xs font-semibold bg-accent hover:bg-accent-hover text-white"
+                >
+                  ✓ שמור קישור תמונה
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <div
+                className="text-[11px] font-mono text-text-secondary break-all text-left bg-bg-primary p-2 rounded border border-gray-800 max-h-20 overflow-y-auto"
+                dir="ltr"
+              >
+                {activeUrl}
+              </div>
+              <div className="flex flex-wrap gap-1.5 justify-between items-center">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingUrl(true)}
+                  className="px-2.5 py-1 rounded text-xs bg-blue-600/20 hover:bg-blue-600/35 text-blue-200 border border-blue-500/40 font-semibold"
+                >
+                  ✏️ ערוך קישור לתמונה
+                </button>
+                {previewMode === 'https' && isHttp && !hasError && dimensions && (
+                  <button
+                    type="button"
+                    onClick={() => handleApplyUrl(true)}
+                    className="px-2.5 py-1 rounded text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                  >
+                    🔒 השתמש ב-HTTPS
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {!onSaveUrl && (
+            <div
+              className="text-[11px] font-mono text-text-secondary break-all text-left bg-bg-primary p-2 rounded border border-gray-800 max-h-20 overflow-y-auto"
+              dir="ltr"
+            >
+              {activeUrl}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -262,18 +262,85 @@ const getPriorityCanonical = (name: string): string | null => {
   return null;
 };
 
-export const findPotentialDuplicates = (stations: Station[]): DuplicateGroup[] => {
+export const makeStationPairKey = (uuidA: string, uuidB: string): string =>
+  [uuidA, uuidB].sort().join('::');
+
+export const findPotentialDuplicates = (
+  stations: Station[],
+  ignoredPairKeys: string[] = []
+): DuplicateGroup[] => {
   const groups: DuplicateGroup[] = [];
-  const pairedKeys = new Set<string>();
+  const shownPairKeys = new Set<string>();
+  const ignoredSet = new Set<string>(ignoredPairKeys);
 
-  const pairKey = (a: Station, b: Station) =>
-    [a.stationuuid, b.stationuuid].sort().join('::');
+  const emitActiveComponents = (
+    list: Station[],
+    baseId: string,
+    reason: DuplicateReason,
+    confidence: 'high' | 'medium',
+    reasonLabel: string,
+    warningText?: string,
+    componentFilter?: (compStations: Station[]) => boolean
+  ) => {
+    if (list.length < 2) return;
 
-  const markPairs = (list: Station[]) => {
+    const adj: number[][] = Array.from({ length: list.length }, () => []);
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
-        pairedKeys.add(pairKey(list[i], list[j]));
+        const pk = makeStationPairKey(list[i].stationuuid, list[j].stationuuid);
+        if (!ignoredSet.has(pk) && !shownPairKeys.has(pk)) {
+          adj[i].push(j);
+          adj[j].push(i);
+        }
       }
+    }
+
+    const visited = new Array<boolean>(list.length).fill(false);
+    let compIndex = 0;
+
+    for (let startIdx = 0; startIdx < list.length; startIdx++) {
+      if (visited[startIdx] || adj[startIdx].length === 0) continue;
+
+      const queue = [startIdx];
+      visited[startIdx] = true;
+      const compIndices: number[] = [];
+
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        compIndices.push(curr);
+        for (const neighbor of adj[curr]) {
+          if (!visited[neighbor]) {
+            visited[neighbor] = true;
+            queue.push(neighbor);
+          }
+        }
+      }
+
+      if (compIndices.length < 2) continue;
+      const compStations = compIndices.map(i => list[i]);
+      if (componentFilter && !componentFilter(compStations)) continue;
+
+      for (let a = 0; a < compIndices.length; a++) {
+        for (let b = a + 1; b < compIndices.length; b++) {
+          const pk = makeStationPairKey(
+            compStations[a].stationuuid,
+            compStations[b].stationuuid
+          );
+          if (!ignoredSet.has(pk)) {
+            shownPairKeys.add(pk);
+          }
+        }
+      }
+
+      groups.push({
+        id: compIndex === 0 ? baseId : `${baseId}#${compIndex}`,
+        reason,
+        confidence,
+        reasonLabel,
+        ...(warningText ? { warningText } : {}),
+        stations: compStations,
+      });
+      compIndex += 1;
     }
   };
 
@@ -287,16 +354,13 @@ export const findPotentialDuplicates = (stations: Station[]): DuplicateGroup[] =
     byStreamUrl.set(norm, arr);
   }
   byStreamUrl.forEach((list, normUrl) => {
-    if (list.length > 1) {
-      markPairs(list);
-      groups.push({
-        id: `url:${normUrl}`,
-        reason: 'exact_url',
-        confidence: 'high',
-        reasonLabel: 'כתובת שידור זהה',
-        stations: list,
-      });
-    }
+    emitActiveComponents(
+      list,
+      `url:${normUrl}`,
+      'exact_url',
+      'high',
+      'כתובת שידור זהה'
+    );
   });
 
   // 2. Saved alias exact match (future stations matching a previously saved alternate name)
@@ -313,32 +377,15 @@ export const findPotentialDuplicates = (stations: Station[]): DuplicateGroup[] =
     }
   }
   byExactAliasName.forEach((list, normName) => {
-    if (list.length > 1) {
-      // Only treat as saved_alias group when at least one station actually carries an alias matching another's name
-      const involvesAlias = list.some(st =>
-        (st.aliases || []).some(a => a.trim().toLowerCase() === normName)
-      );
-      if (!involvesAlias) return;
-      let hasNewPair = false;
-      for (let i = 0; i < list.length && !hasNewPair; i++) {
-        for (let j = i + 1; j < list.length; j++) {
-          if (!pairedKeys.has(pairKey(list[i], list[j]))) {
-            hasNewPair = true;
-            break;
-          }
-        }
-      }
-      if (hasNewPair) {
-        markPairs(list);
-        groups.push({
-          id: `alias:${normName}`,
-          reason: 'saved_alias',
-          confidence: 'high',
-          reasonLabel: 'תואם לכינוי שמור במקור',
-          stations: list,
-        });
-      }
-    }
+    emitActiveComponents(
+      list,
+      `alias:${normName}`,
+      'saved_alias',
+      'high',
+      'תואם לכינוי שמור במקור',
+      undefined,
+      (comp) => comp.some(st => (st.aliases || []).some(a => a.trim().toLowerCase() === normName))
+    );
   });
 
   // 3. Same favicon URL (excluding empty / placeholder URLs)
@@ -351,28 +398,14 @@ export const findPotentialDuplicates = (stations: Station[]): DuplicateGroup[] =
     byFavicon.set(norm, arr);
   }
   byFavicon.forEach((list, normIcon) => {
-    if (list.length > 1) {
-      let hasNewPair = false;
-      for (let i = 0; i < list.length && !hasNewPair; i++) {
-        for (let j = i + 1; j < list.length; j++) {
-          if (!pairedKeys.has(pairKey(list[i], list[j]))) {
-            hasNewPair = true;
-            break;
-          }
-        }
-      }
-      if (hasNewPair) {
-        markPairs(list);
-        groups.push({
-          id: `icon:${normIcon}`,
-          reason: 'same_favicon',
-          confidence: 'medium',
-          reasonLabel: 'אותו לוגו (תמונה זהה)',
-          warningText: 'תחנות שמשתפות אותו לוגו עשויות להיות כפילות, או ערוצי משנה של אותה רשת. מומלץ להאזין לפני מחיקה.',
-          stations: list,
-        });
-      }
-    }
+    emitActiveComponents(
+      list,
+      `icon:${normIcon}`,
+      'same_favicon',
+      'medium',
+      'אותו לוגו (תמונה זהה)',
+      'תחנות שמשתפות אותו לוגו עשויות להיות כפילות, או ערוצי משנה של אותה רשת. מומלץ להאזין לפני מחיקה.'
+    );
   });
 
   // 4. Similar name & aliases (with strict guard against distinct sub-channels or different FM numbers)
@@ -401,28 +434,14 @@ export const findPotentialDuplicates = (stations: Station[]): DuplicateGroup[] =
   }
 
   bySimilarKey.forEach((list, key) => {
-    if (list.length > 1) {
-      let hasNewPair = false;
-      for (let i = 0; i < list.length && !hasNewPair; i++) {
-        for (let j = i + 1; j < list.length; j++) {
-          if (!pairedKeys.has(pairKey(list[i], list[j]))) {
-            hasNewPair = true;
-            break;
-          }
-        }
-      }
-      if (hasNewPair) {
-        markPairs(list);
-        groups.push({
-          id: `name:${key}`,
-          reason: 'similar_name',
-          confidence: 'medium',
-          reasonLabel: 'שם תחנה דומה',
-          warningText: 'בדיקה לפי דמיון שם בלבד — ייתכן שמדובר במקורות שונים לאותה תחנה או בתחנות שונות. האזן לשתיהן לפני מחיקה.',
-          stations: list,
-        });
-      }
-    }
+    emitActiveComponents(
+      list,
+      `name:${key}`,
+      'similar_name',
+      'medium',
+      'שם תחנה דומה',
+      'בדיקה לפי דמיון שם בלבד — ייתכן שמדובר במקורות שונים לאותה תחנה או בתחנות שונות. האזן לשתיהן לפני מחיקה.'
+    );
   });
 
   return groups.sort((a, b) => (a.confidence === 'high' ? -1 : 1) - (b.confidence === 'high' ? -1 : 1));
