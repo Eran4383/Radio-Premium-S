@@ -54,11 +54,15 @@ export const useStationsLogic = (
         break;
       case 'priority':
       default:
-        const getPriorityIndex = (name: string) => 
-          PRIORITY_STATIONS.findIndex(ps => ps.aliases.some(alias => name.toLowerCase().includes(alias.toLowerCase())));
+        const getPriorityIndex = (station: Station) => {
+          const names = [station.name, ...(station.aliases || [])].map(n => n.toLowerCase());
+          return PRIORITY_STATIONS.findIndex(ps =>
+            ps.aliases.some(alias => names.some(n => n.includes(alias.toLowerCase())))
+          );
+        };
         list.sort((a, b) => {
-          let aP = getPriorityIndex(a.name);
-          let bP = getPriorityIndex(b.name);
+          let aP = getPriorityIndex(a);
+          let bP = getPriorityIndex(b);
           if (aP === -1) aP = Infinity;
           if (bP === -1) bP = Infinity;
           return aP !== bP ? aP - bP : a.name.localeCompare(b.name, 'he');

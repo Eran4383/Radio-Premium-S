@@ -11,16 +11,34 @@ export const useTrackInfo = (station: Station | null) => {
     let intervalId: number;
     const fetchAndSetInfo = async () => {
       if (!station) return;
-      const { name, stationuuid } = station;
+      const { name, aliases = [], stationuuid } = station;
+      const candidateNames = [name, ...aliases].map(n => n.trim()).filter(Boolean);
+      const matchedSpecificName = candidateNames.find(n => hasSpecificHandler(n));
       let finalInfo: StationTrackInfo | null = null;
 
-      if (hasSpecificHandler(name)) {
-        const specificInfo = await fetchStationSpecificTrackInfo(name);
+      if (matchedSpecificName) {
+        const specificInfo = await fetchStationSpecificTrackInfo(matchedSpecificName);
         finalInfo = specificInfo ? { ...specificInfo } : { program: null, current: null, next: null };
-        if (!finalInfo.program) finalInfo.program = getCurrentProgram(name);
+        if (!finalInfo.program) {
+          for (const candidate of candidateNames) {
+            const prog = getCurrentProgram(candidate);
+            if (prog) {
+              finalInfo.program = prog;
+              break;
+            }
+          }
+        }
       } else {
-        const [songTitle, programName] = await Promise.all([fetchLiveTrackInfo(stationuuid), getCurrentProgram(name)]);
-        const current = songTitle && songTitle.toLowerCase() !== name.toLowerCase() ? songTitle : null;
+        const songTitle = await fetchLiveTrackInfo(stationuuid);
+        let programName: string | null = null;
+        for (const candidate of candidateNames) {
+          programName = getCurrentProgram(candidate);
+          if (programName) break;
+        }
+        const current =
+          songTitle && !candidateNames.some(c => c.toLowerCase() === songTitle.toLowerCase())
+            ? songTitle
+            : null;
         finalInfo = { program: programName, current, next: null };
       }
       setTrackInfo(finalInfo);

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Station } from '../../types';
 import { getStationHttpsIssues, testStreamUrl, testImageUrl } from '../../services/stationAdminUtils';
+import { useAdminAudioPreview } from '../../hooks/useAdminAudioPreview';
+import ImagePreviewModal from './ImagePreviewModal';
 
 interface EditStationModalProps {
   station: Station;
@@ -14,12 +16,30 @@ interface TestFeedback {
 }
 
 const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, onCancel }) => {
-  const [formData, setFormData] = useState<Station>({ ...station });
+  const [formData, setFormData] = useState<Station>({
+    ...station,
+    aliases: station.aliases ? [...station.aliases] : [],
+  });
+  const [newAliasDraft, setNewAliasDraft] = useState('');
   const [streamTest, setStreamTest] = useState<TestFeedback>({ status: 'idle', message: '' });
   const [faviconTest, setFaviconTest] = useState<TestFeedback>({ status: 'idle', message: '' });
   const [copiedField, setCopiedField] = useState<'stream' | 'favicon' | null>(null);
+  const [isImageBubbleOpen, setIsImageBubbleOpen] = useState(false);
+
+  const {
+    playingKey,
+    isLoading: isAudioLoading,
+    error: audioPreviewError,
+    setError: setAudioPreviewError,
+    togglePlay,
+    stop: stopAudioPreview,
+  } = useAdminAudioPreview();
 
   const httpsIssues = getStationHttpsIssues(formData);
+  const trimmedStream = formData.url_resolved.trim();
+  const httpsStreamCandidate = httpsIssues.streamIsHttp
+    ? trimmedStream.replace(/^http:\/\//i, 'https://')
+    : '';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -27,8 +47,35 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
       ...prev,
       [name]: name === 'bitrate' ? parseInt(value, 10) || 0 : value,
     }));
-    if (name === 'url_resolved') setStreamTest({ status: 'idle', message: '' });
+    if (name === 'url_resolved') {
+      setStreamTest({ status: 'idle', message: '' });
+      setAudioPreviewError(null);
+      stopAudioPreview();
+    }
     if (name === 'favicon') setFaviconTest({ status: 'idle', message: '' });
+  };
+
+  const handleAddAlias = () => {
+    const trimmed = newAliasDraft.trim();
+    if (!trimmed) return;
+    const current = formData.aliases || [];
+    const exists =
+      trimmed.toLowerCase() === formData.name.trim().toLowerCase() ||
+      current.some(a => a.trim().toLowerCase() === trimmed.toLowerCase());
+    if (!exists) {
+      setFormData(prev => ({
+        ...prev,
+        aliases: [...(prev.aliases || []), trimmed],
+      }));
+    }
+    setNewAliasDraft('');
+  };
+
+  const handleRemoveAlias = (aliasToRemove: string) => {
+    setFormData(prev => ({
+      ...prev,
+      aliases: (prev.aliases || []).filter(a => a !== aliasToRemove),
+    }));
   };
 
   const handleCopy = async (text: string, field: 'stream' | 'favicon') => {
@@ -50,13 +97,12 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
   };
 
   const handleTryUpgradeStreamHttps = async () => {
-    const trimmed = formData.url_resolved.trim();
-    if (!trimmed.toLowerCase().startsWith('http://')) return;
-    const httpsUrl = trimmed.replace(/^http:\/\//i, 'https://');
+    if (!httpsIssues.streamIsHttp) return;
     setStreamTest({ status: 'testing', message: 'בודק אם השרת תומך ב-HTTPS...' });
-    const res = await testStreamUrl(httpsUrl);
+    const res = await testStreamUrl(httpsStreamCandidate);
     if (res.ok) {
-      setFormData(prev => ({ ...prev, url_resolved: httpsUrl }));
+      stopAudioPreview();
+      setFormData(prev => ({ ...prev, url_resolved: httpsStreamCandidate }));
       setStreamTest({
         status: 'ok',
         message: `✅ השרת תומך ב-HTTPS! הכתובת שודרגה אוטומטית (${res.latencyMs}ms)`,
@@ -99,8 +145,27 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
     }
   };
 
+  const handleSaveClick = () => {
+    stopAudioPreview();
+    const cleanedAliases = (formData.aliases || []).map(a => a.trim()).filter(Boolean);
+    const { aliases: _removed, ...rest } = formData;
+    onSave(cleanedAliases.length > 0 ? { ...rest, aliases: cleanedAliases } : rest);
+  };
+
+  const handleCancelClick = () => {
+    stopAudioPreview();
+    onCancel();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-3 sm:p-4">
+      <ImagePreviewModal
+        isOpen={isImageBubbleOpen}
+        imageUrl={formData.favicon}
+        title={formData.name || 'לוגו תחנה'}
+        onClose={() => setIsImageBubbleOpen(false)}
+      />
+
       <div className="bg-bg-secondary p-4 sm:p-6 rounded-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-gray-700 shadow-2xl">
         <div className="flex items-center justify-between gap-3 mb-4">
           <h3 className="text-xl font-bold text-text-primary">עריכת תחנה</h3>
@@ -122,6 +187,57 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
             />
           </div>
 
+          {/* Saved Alternate Names / Aliases */}
+          <div className="p-3 rounded-lg bg-bg-primary/50 border border-gray-700/70 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-text-secondary">
+                שמות נוספים / כינויים מוכרים (לזיהוי כפילויות ומידע)
+              </label>
+            </div>
+            {formData.aliases && formData.aliases.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {formData.aliases.map(alias => (
+                  <span
+                    key={alias}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-sky-500/15 text-sky-200 border border-sky-500/30"
+                  >
+                    <span>{alias}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAlias(alias)}
+                      className="text-sky-300 hover:text-red-300 font-bold"
+                      aria-label={`הסר כינוי ${alias}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newAliasDraft}
+                onChange={e => setNewAliasDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddAlias();
+                  }
+                }}
+                placeholder="הוסף שם נוסף לתחנה (לדוגמה: גלגלצ HD)..."
+                className="flex-1 px-2.5 py-1.5 rounded bg-bg-primary border border-gray-700 text-xs text-text-primary focus:outline-none focus:border-accent"
+              />
+              <button
+                type="button"
+                onClick={handleAddAlias}
+                className="px-3 py-1.5 text-xs font-semibold rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+              >
+                + הוסף
+              </button>
+            </div>
+          </div>
+
           {/* Stream URL Section */}
           <div className="p-3 rounded-lg bg-bg-primary/60 border border-gray-700/80 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -130,7 +246,7 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
                 <span className="text-[11px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   ⚠️ כתובת HTTP לא מאובטחת
                 </span>
-              ) : formData.url_resolved.trim().toLowerCase().startsWith('https://') ? (
+              ) : trimmedStream.toLowerCase().startsWith('https://') ? (
                 <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   🔒 HTTPS מאובטח
                 </span>
@@ -156,6 +272,52 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
               >
                 {streamTest.status === 'testing' ? 'בודק...' : '🔍 בדוק תקינות קישור'}
               </button>
+
+              {/* Audible listen button for source URL */}
+              <button
+                type="button"
+                onClick={() =>
+                  togglePlay(
+                    'source',
+                    trimmedStream,
+                    httpsIssues.streamIsHttp ? 'המקור (HTTP)' : formData.name
+                  )
+                }
+                disabled={!trimmedStream}
+                className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors disabled:opacity-40 ${
+                  playingKey === 'source'
+                    ? 'bg-red-600 hover:bg-red-500 text-white'
+                    : 'bg-emerald-600/25 hover:bg-emerald-600/45 text-emerald-200 border border-emerald-500/40'
+                }`}
+              >
+                {playingKey === 'source'
+                  ? isAudioLoading
+                    ? '⏳ טוען... (עצור)'
+                    : '⏹ עצור מקור'
+                  : httpsIssues.streamIsHttp
+                  ? '▶ האזן למקור (HTTP)'
+                  : '▶ האזן לשידור'}
+              </button>
+
+              {/* Audible listen button directly in HTTPS when current URL is HTTP */}
+              {httpsIssues.streamIsHttp && (
+                <button
+                  type="button"
+                  onClick={() => togglePlay('https', httpsStreamCandidate, 'HTTPS')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors ${
+                    playingKey === 'https'
+                      ? 'bg-red-600 hover:bg-red-500 text-white'
+                      : 'bg-teal-600/25 hover:bg-teal-600/45 text-teal-200 border border-teal-500/40'
+                  }`}
+                >
+                  {playingKey === 'https'
+                    ? isAudioLoading
+                      ? '⏳ טוען HTTPS... (עצור)'
+                      : '⏹ עצור HTTPS'
+                    : '🔊 האזן ב-HTTPS'}
+                </button>
+              )}
+
               {httpsIssues.streamIsHttp && (
                 <button
                   type="button"
@@ -166,6 +328,7 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
                   🔒 בדוק ושדרג ל-HTTPS
                 </button>
               )}
+
               <button
                 type="button"
                 onClick={() => handleCopy(formData.url_resolved, 'stream')}
@@ -174,6 +337,31 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
                 {copiedField === 'stream' ? '✓ הועתק' : '📋 העתק'}
               </button>
             </div>
+
+            {playingKey && (
+              <div className="p-2 rounded text-xs bg-emerald-500/15 text-emerald-200 border border-emerald-500/30 flex items-center justify-between">
+                <span>
+                  {playingKey === 'https'
+                    ? '🔊 משמיע כעת ניסיון ב-HTTPS — ודא ששומעים שידור תקין'
+                    : httpsIssues.streamIsHttp
+                    ? '🔊 משמיע כעת את כתובת המקור (HTTP)'
+                    : '🔊 משמיע כעת את התחנה'}
+                </span>
+                <button
+                  type="button"
+                  onClick={stopAudioPreview}
+                  className="text-red-300 hover:underline font-semibold"
+                >
+                  עצור
+                </button>
+              </div>
+            )}
+
+            {audioPreviewError && (
+              <div className="p-2 rounded text-xs bg-red-500/15 text-red-300 border border-red-500/30">
+                ❌ {audioPreviewError}
+              </div>
+            )}
 
             {streamTest.message && (
               <div
@@ -215,12 +403,28 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
                 dir="ltr"
                 placeholder="https://..."
               />
-              <img
-                src={formData.favicon}
-                alt="תצוגה מקדימה"
-                className="w-12 h-12 rounded-lg bg-black/50 border border-gray-700 object-contain flex-shrink-0"
-                onError={e => { (e.target as HTMLImageElement).src = ''; }}
-              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (formData.favicon.trim()) setIsImageBubbleOpen(true);
+                }}
+                disabled={!formData.favicon.trim()}
+                className="relative group w-12 h-12 rounded-lg bg-black/50 border border-gray-700 hover:border-accent flex-shrink-0 overflow-hidden cursor-zoom-in disabled:cursor-default"
+                title="לחץ להגדלת התמונה בחלון בועה"
+                aria-label="הגדל תמונת תצוגה"
+              >
+                <img
+                  src={formData.favicon}
+                  alt="תצוגה מקדימה"
+                  className="w-full h-full object-contain"
+                  onError={e => { (e.target as HTMLImageElement).src = ''; }}
+                />
+                {formData.favicon.trim() && (
+                  <span className="absolute bottom-0.5 left-0.5 bg-black/75 text-[9px] text-white px-1 rounded opacity-80 group-hover:opacity-100">
+                    🔍
+                  </span>
+                )}
+              </button>
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -302,10 +506,10 @@ const EditStationModal: React.FC<EditStationModalProps> = ({ station, onSave, on
         </div>
 
         <div className="flex gap-3 mt-6">
-          <button onClick={onCancel} className="flex-1 py-2.5 bg-gray-600 rounded-lg hover:bg-gray-500 font-medium">
+          <button onClick={handleCancelClick} className="flex-1 py-2.5 bg-gray-600 rounded-lg hover:bg-gray-500 font-medium">
             ביטול
           </button>
-          <button onClick={() => onSave(formData)} className="flex-1 py-2.5 bg-accent text-white rounded-lg hover:bg-accent-hover font-bold">
+          <button onClick={handleSaveClick} className="flex-1 py-2.5 bg-accent text-white rounded-lg hover:bg-accent-hover font-bold">
             שמור שינויים
           </button>
         </div>

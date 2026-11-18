@@ -121,8 +121,17 @@ export const fetchCustomStations = async (): Promise<Station[] | null> => {
 
 export const saveCustomStations = async (stations: Station[]) => {
     const docRef = doc(db, APP_DATA_COLLECTION, STATIONS_DOC_ID);
+    const sanitizedStations = stations.map((station) => {
+        const clean: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(station)) {
+            if (value !== undefined) {
+                clean[key] = value;
+            }
+        }
+        return clean as unknown as Station;
+    });
     await setDoc(docRef, { 
-        stations: stations,
+        stations: sanitizedStations,
         updatedAt: serverTimestamp() 
     });
     return true;

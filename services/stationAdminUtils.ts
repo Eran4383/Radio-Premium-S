@@ -161,9 +161,9 @@ export const testImageUrl = (url: string, timeoutMs = 5000): Promise<ImageTestRe
   });
 };
 
-// --- Safe Duplicate Detection ---
+// --- Safe Duplicate Detection & Aliases ---
 
-export type DuplicateReason = 'exact_url' | 'same_favicon' | 'similar_name';
+export type DuplicateReason = 'exact_url' | 'saved_alias' | 'same_favicon' | 'similar_name';
 
 export interface DuplicateGroup {
   id: string;
@@ -173,6 +173,39 @@ export interface DuplicateGroup {
   warningText?: string;
   stations: Station[];
 }
+
+export const getAllStationNames = (station: Station): string[] => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of [station.name, ...(station.aliases || [])]) {
+    const trimmed = (raw || '').trim();
+    if (!trimmed) continue;
+    const low = trimmed.toLowerCase();
+    if (!seen.has(low)) {
+      seen.add(low);
+      result.push(trimmed);
+    }
+  }
+  return result;
+};
+
+export const mergeAliasesIntoStation = (source: Station, newNames: string[]): Station => {
+  const sourceLow = source.name.trim().toLowerCase();
+  const seen = new Set<string>();
+  const merged: string[] = [];
+
+  for (const candidate of [...(source.aliases || []), ...newNames]) {
+    const trimmed = (candidate || '').trim();
+    if (!trimmed) continue;
+    const low = trimmed.toLowerCase();
+    if (low === sourceLow || seen.has(low)) continue;
+    seen.add(low);
+    merged.push(trimmed);
+  }
+
+  const { aliases: _removed, ...rest } = source;
+  return merged.length > 0 ? { ...rest, aliases: merged } : rest;
+};
 
 const normalizeUrlForComparison = (url: string): string => {
   return (url || '')
@@ -266,7 +299,49 @@ export const findPotentialDuplicates = (stations: Station[]): DuplicateGroup[] =
     }
   });
 
-  // 2. Same favicon URL (excluding empty / placeholder URLs)
+  // 2. Saved alias exact match (future stations matching a previously saved alternate name)
+  const byExactAliasName = new Map<string, Station[]>();
+  for (const s of stations) {
+    const names = getAllStationNames(s);
+    for (const n of names) {
+      const low = n.toLowerCase();
+      const arr = byExactAliasName.get(low) || [];
+      if (!arr.some(x => x.stationuuid === s.stationuuid)) {
+        arr.push(s);
+        byExactAliasName.set(low, arr);
+      }
+    }
+  }
+  byExactAliasName.forEach((list, normName) => {
+    if (list.length > 1) {
+      // Only treat as saved_alias group when at least one station actually carries an alias matching another's name
+      const involvesAlias = list.some(st =>
+        (st.aliases || []).some(a => a.trim().toLowerCase() === normName)
+      );
+      if (!involvesAlias) return;
+      let hasNewPair = false;
+      for (let i = 0; i < list.length && !hasNewPair; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+          if (!pairedKeys.has(pairKey(list[i], list[j]))) {
+            hasNewPair = true;
+            break;
+          }
+        }
+      }
+      if (hasNewPair) {
+        markPairs(list);
+        groups.push({
+          id: `alias:${normName}`,
+          reason: 'saved_alias',
+          confidence: 'high',
+          reasonLabel: 'תואם לכינוי שמור במקור',
+          stations: list,
+        });
+      }
+    }
+  });
+
+  // 3. Same favicon URL (excluding empty / placeholder URLs)
   const byFavicon = new Map<string, Station[]>();
   for (const s of stations) {
     const norm = normalizeUrlForComparison(s.favicon);
@@ -277,7 +352,6 @@ export const findPotentialDuplicates = (stations: Station[]): DuplicateGroup[] =
   }
   byFavicon.forEach((list, normIcon) => {
     if (list.length > 1) {
-      // Check if all pairs are already captured by exact_url
       let hasNewPair = false;
       for (let i = 0; i < list.length && !hasNewPair; i++) {
         for (let j = i + 1; j < list.length; j++) {
@@ -301,27 +375,29 @@ export const findPotentialDuplicates = (stations: Station[]): DuplicateGroup[] =
     }
   });
 
-  // 3. Similar name (with strict guard against distinct sub-channels or different FM numbers)
+  // 4. Similar name & aliases (with strict guard against distinct sub-channels or different FM numbers)
   const bySimilarKey = new Map<string, Station[]>();
   for (const s of stations) {
-    const core = normalizeStationNameCore(s.name);
-    const nums = extractNumericTokens(s.name).join(',');
-    const subs = extractSubchannelTokens(s.name).join(',');
-    const canonical = getPriorityCanonical(s.name);
+    for (const candidateName of getAllStationNames(s)) {
+      const core = normalizeStationNameCore(candidateName);
+      const nums = extractNumericTokens(candidateName).join(',');
+      const subs = extractSubchannelTokens(candidateName).join(',');
+      const canonical = getPriorityCanonical(candidateName);
 
-    // If it matches a known canonical station AND has no conflicting sub-channel token, group under canonical
-    // Otherwise group under core+nums+subs
-    let key = '';
-    if (canonical && subs === '') {
-      key = `canon:${canonical}|${nums}`;
-    } else if (core.length >= 2) {
-      key = `core:${core}|${nums}|${subs}`;
+      let key = '';
+      if (canonical && subs === '') {
+        key = `canon:${canonical}|${nums}`;
+      } else if (core.length >= 2) {
+        key = `core:${core}|${nums}|${subs}`;
+      }
+
+      if (!key) continue;
+      const arr = bySimilarKey.get(key) || [];
+      if (!arr.some(x => x.stationuuid === s.stationuuid)) {
+        arr.push(s);
+        bySimilarKey.set(key, arr);
+      }
     }
-
-    if (!key) continue;
-    const arr = bySimilarKey.get(key) || [];
-    arr.push(s);
-    bySimilarKey.set(key, arr);
   }
 
   bySimilarKey.forEach((list, key) => {

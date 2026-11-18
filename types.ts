@@ -6,6 +6,7 @@ export type User = FirebaseUser;
 export interface Station {
   stationuuid: string;
   name: string;
+  aliases?: string[];
   url_resolved: string;
   favicon: string;
   tags: string;
