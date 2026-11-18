@@ -298,6 +298,27 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
     showTempStatus(`השם "${duplicate.name}" נשמר ככינוי של "${source.name}" והכפילות הוסרה (זכור ללחוץ "שמור לענן").`, 4500);
   };
 
+  const handleMergeStations = ({
+    baseUuid,
+    deleteUuids,
+    mergedStation,
+  }: {
+    baseUuid: string;
+    deleteUuids: string[];
+    mergedStation: Station;
+  }) => {
+    const deleteSet = new Set(deleteUuids);
+    setStations(prev =>
+      prev
+        .filter(s => !deleteSet.has(s.stationuuid))
+        .map(s => (s.stationuuid === baseUuid ? mergedStation : s))
+    );
+    showTempStatus(
+      `המיזוג הושלם: "${mergedStation.name}" עודכנה ו-${deleteUuids.length} כפילויות הוסרו (זכור ללחוץ "שמור לענן").`,
+      5000
+    );
+  };
+
   const handleMarkNotDuplicates = (groupStations: Station[]) => {
     const newKeys: string[] = [];
     for (let i = 0; i < groupStations.length; i++) {
@@ -311,6 +332,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
       ignoredDuplicatePairs: Array.from(new Set([...prev.ignoredDuplicatePairs, ...newKeys])),
     }));
     showTempStatus('הזוגות סומנו כתחנות שונות ולא יוצגו שוב יחד ככפילות.', 3500);
+  };
+
+  const handleExcludeStationFromGroup = (station: Station, groupStations: Station[]) => {
+    const newKeys = groupStations
+      .filter(other => other.stationuuid !== station.stationuuid)
+      .map(other => makeStationPairKey(station.stationuuid, other.stationuuid));
+    if (newKeys.length === 0) return;
+    updateAdminMeta(prev => ({
+      ...prev,
+      ignoredDuplicatePairs: Array.from(new Set([...prev.ignoredDuplicatePairs, ...newKeys])),
+    }));
+    showTempStatus(
+      `"${station.name}" הוחרגה מקבוצה זו ולא תזוהה ככפילה של תחנות אלו בעתיד.`,
+      4000
+    );
   };
 
   const handleResetIgnoredPairs = () => {
@@ -819,7 +855,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, currentStation
               }}
               onDelete={handleRequestDelete}
               onMergeAndDelete={handleMergeAndDelete}
+              onMergeStations={handleMergeStations}
               onMarkNotDuplicates={handleMarkNotDuplicates}
+              onExcludeStationFromGroup={handleExcludeStationFromGroup}
               onResetIgnoredPairs={handleResetIgnoredPairs}
               onPreviewImage={(url, title, stationUuid) =>
                 setImagePreview({ isOpen: true, url, title, stationUuid })

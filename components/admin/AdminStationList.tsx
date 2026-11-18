@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Station } from '../../types';
 import { getStationHttpsIssues } from '../../services/stationAdminUtils';
+import StationLogoThumb from './StationLogoThumb';
 
 export interface RowTestState {
   loading: boolean;
@@ -133,12 +134,7 @@ const AdminStationList: React.FC<AdminStationListProps> = ({
                 title={s.favicon?.trim() ? 'לחץ להגדלה או עריכת קישור התמונה' : 'לחץ להוספת קישור תמונה'}
                 aria-label={`הגדל לוגו של ${s.name}`}
               >
-                <img
-                  src={s.favicon}
-                  alt={s.name}
-                  className="w-full h-full object-contain"
-                  onError={e => { (e.target as HTMLImageElement).src = ''; }}
-                />
+                <StationLogoThumb src={s.favicon} alt={s.name} sizeClass="w-11 h-11" />
               </button>
 
               <div className="flex-grow min-w-0 space-y-1">

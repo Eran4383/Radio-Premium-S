@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArchivedNonHttpsStation, Station } from '../../types';
 import { getStationHttpsIssues, testImageUrl, testStreamUrl } from '../../services/stationAdminUtils';
 import { useAdminAudioPreview } from '../../hooks/useAdminAudioPreview';
+import StationLogoThumb from './StationLogoThumb';
 
 interface ArchiveCheckResult {
   loading: boolean;
@@ -205,12 +206,7 @@ const AdminNonHttpsArchiveTab: React.FC<AdminNonHttpsArchiveTabProps> = ({
                     className="w-11 h-11 rounded bg-black border border-gray-700 flex-shrink-0 overflow-hidden cursor-zoom-in disabled:cursor-default"
                     title={s.favicon?.trim() ? 'לחץ להגדלת התמונה' : undefined}
                   >
-                    <img
-                      src={s.favicon}
-                      alt={s.name}
-                      className="w-full h-full object-contain"
-                      onError={e => { (e.target as HTMLImageElement).src = ''; }}
-                    />
+                    <StationLogoThumb src={s.favicon} alt={s.name} sizeClass="w-11 h-11" />
                   </button>
 
                   <div className="flex-grow min-w-0 space-y-1">

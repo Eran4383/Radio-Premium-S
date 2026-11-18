@@ -7,6 +7,13 @@ export default defineConfig({
   server: {
     port: 3000,
     host: '0.0.0.0',
+    allowedHosts: true,
+    hmr: false,
+  },
+  preview: {
+    port: 3000,
+    host: '0.0.0.0',
+    allowedHosts: true,
   },
   build: {
     chunkSizeWarningLimit: 1000,
